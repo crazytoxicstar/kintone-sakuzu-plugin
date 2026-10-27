@@ -4,7 +4,7 @@ import type { DataProvider } from "./providers";
 import type { TreeNode, FieldChange } from "./model";
 import { TreeModel } from "./model";
 import { layoutTree, type LayoutResult, type NodeBox, type Direction } from "./layout";
-import { injectTreeCss } from "./styles";
+import { injectTreeCss, TREE_CSS } from "./styles";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 const SVG_H = 640;
@@ -39,6 +39,13 @@ export class TreeEditor {
   private layout!: LayoutResult;
   private vb: VB = { x: 0, y: 0, w: 1000, h: SVG_H };
   private rects: NodeRect[] = [];
+  private printLayer!: SVGGElement; // 印刷ページ境界オーバーレイ
+  private printOn = false;
+  private printPanel?: HTMLElement;
+  private printCountEl?: HTMLElement;
+  private printPaper = "A4";
+  private printOrient = "land";
+  private printScale = 1;
   private undoStack: FieldChange[][] = [];
   private fitW = 1000; // ズーム100%（全体表示）基準
   private fitH = SVG_H;
@@ -143,8 +150,10 @@ export class TreeEditor {
     this.undoBtn = this.mkBtn("元に戻す", () => void this.undo());
     this.undoBtn.disabled = true;
     const fitBtn = this.mkBtn("全体表示", () => this.fit());
+    const printBtn = this.mkBtn("印刷", () => this.togglePrint());
     const fsBtn = this.mkBtn("全画面", () => this.toggleFullscreen());
-    bar.append(brand, hint, spacer, expandBtn, collapseBtn, this.undoBtn, fitBtn, fsBtn);
+    // ボタンは左寄せ、見出しは右端（自由配置と揃える）
+    bar.append(expandBtn, collapseBtn, this.undoBtn, fitBtn, printBtn, fsBtn, spacer, hint, brand);
     this.root.appendChild(bar);
 
     const wrap = document.createElement("div");
@@ -165,11 +174,13 @@ export class TreeEditor {
     this.scene = document.createElementNS(SVG_NS, "g") as SVGGElement;
     this.edgeLayer = document.createElementNS(SVG_NS, "g") as SVGGElement;
     this.nodeLayer = document.createElementNS(SVG_NS, "g") as SVGGElement;
-    this.scene.append(this.edgeLayer, this.nodeLayer);
+    this.printLayer = document.createElementNS(SVG_NS, "g") as SVGGElement;
+    this.scene.append(this.edgeLayer, this.nodeLayer, this.printLayer);
     this.svg.appendChild(this.scene);
     wrap.appendChild(this.svg);
 
     wrap.appendChild(this.buildZoomBar());
+    wrap.appendChild(this.buildPrintPanel());
 
     this.toastEl = document.createElement("div");
     this.toastEl.className = "kzt-toast";
@@ -261,6 +272,7 @@ export class TreeEditor {
       this.nodeLayer.appendChild(this.renderToggle(a.nodeId, pos, this.sizeOf(a.nodeId), vert));
     }
 
+    if (this.printOn) this.renderPageGrid(); // 印刷プレビュー中は境界も更新
     this.updateStatus();
   }
 
@@ -590,6 +602,100 @@ export class TreeEditor {
     this.fitW = this.vb.w; // この表示＝100%の基準
     this.fitH = this.vb.h;
     this.applyVB();
+  }
+
+  // ===== 印刷（ページ境界プレビュー＋分割印刷） =====
+  private buildPrintPanel(): HTMLElement {
+    const p = document.createElement("div"); p.className = "kzt-printpanel"; p.style.display = "none";
+    const title = document.createElement("span"); title.className = "kzt-pp-title"; title.textContent = "印刷（A4などに分割）";
+    const row = (label: string, opts: [string, string][], val: string, on: (v: string) => void): HTMLElement => {
+      const wr = document.createElement("label"); wr.className = "kzt-pp-row";
+      const lb = document.createElement("span"); lb.className = "kzt-pp-lb"; lb.textContent = label; wr.append(lb);
+      const s = document.createElement("select"); s.className = "kzt-pp-sel";
+      for (const [v, t] of opts) { const o = document.createElement("option"); o.value = v; o.textContent = t; if (v === val) o.selected = true; s.appendChild(o); }
+      s.addEventListener("change", () => on(s.value)); wr.append(s); return wr;
+    };
+    this.printCountEl = document.createElement("span"); this.printCountEl.className = "kzt-pp-count"; this.printCountEl.textContent = "—";
+    const actions = document.createElement("div"); actions.className = "kzt-pp-actions";
+    actions.append(this.printCountEl, this.mkBtn("印刷する", () => this.doPrint()), this.mkBtn("閉じる", () => this.togglePrint(false)));
+    p.append(
+      title,
+      row("用紙", [["A4", "A4"], ["A3", "A3"]], this.printPaper, (v) => { this.printPaper = v; this.renderPageGrid(); }),
+      row("向き", [["land", "横"], ["port", "縦"]], this.printOrient, (v) => { this.printOrient = v; this.renderPageGrid(); }),
+      row("縮尺", [["0.5", "50%"], ["0.75", "75%"], ["1", "100%"], ["1.25", "125%"], ["1.5", "150%"]], String(this.printScale), (v) => { this.printScale = Number(v); this.renderPageGrid(); }),
+      actions
+    );
+    this.printPanel = p; return p;
+  }
+
+  private togglePrint(force?: boolean): void {
+    this.printOn = force === undefined ? !this.printOn : force;
+    if (this.printPanel) this.printPanel.style.display = this.printOn ? "" : "none";
+    this.renderPageGrid();
+  }
+
+  /** 印刷の基準矩形＝配置物（部門枠）の外接矩形。原点＝左上。 */
+  private printBox(): { x: number; y: number; w: number; h: number } {
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const r of this.rects) { minX = Math.min(minX, r.left); minY = Math.min(minY, r.top); maxX = Math.max(maxX, r.left + r.w); maxY = Math.max(maxY, r.top + r.h); }
+    if (!isFinite(minX)) return { x: 0, y: 0, w: 800, h: 600 };
+    return { x: minX, y: minY, w: Math.max(1, maxX - minX), h: Math.max(1, maxY - minY) };
+  }
+
+  private printTiles(): { pw: number; ph: number; s: number; uWmm: number; uHmm: number; stepW: number; stepH: number; cols: number; rows: number; ox: number; oy: number } {
+    const paper = this.printPaper === "A3" ? [297, 420] : [210, 297];
+    const [pw, ph] = this.printOrient === "port" ? paper : [paper[1], paper[0]];
+    const s = this.printScale, PXMM = 96 / 25.4, M = 10, HD = 8;
+    const uWmm = pw - M * 2, uHmm = ph - M * 2 - HD;
+    const stepW = (uWmm * PXMM) / s, stepH = (uHmm * PXMM) / s;
+    const cb = this.printBox();
+    const cols = Math.max(1, Math.ceil(cb.w / stepW)), rows = Math.max(1, Math.ceil(cb.h / stepH));
+    return { pw, ph, s, uWmm, uHmm, stepW, stepH, cols, rows, ox: cb.x, oy: cb.y };
+  }
+
+  private renderPageGrid(): void {
+    if (!this.printLayer) return;
+    if (!this.printOn) { this.printLayer.innerHTML = ""; return; }
+    const t = this.printTiles(), total = t.cols * t.rows;
+    const lf = Math.max(16, t.stepW * 0.028);
+    let g = "";
+    for (let r = 0; r < t.rows; r++) for (let c = 0; c < t.cols; c++) {
+      const x = t.ox + c * t.stepW, y = t.oy + r * t.stepH;
+      g += `<rect class="kzt-pgfill" x="${x}" y="${y}" width="${t.stepW}" height="${t.stepH}"/>`
+        + `<rect class="kzt-pgline" x="${x}" y="${y}" width="${t.stepW}" height="${t.stepH}"/>`
+        + `<text class="kzt-pglabel" x="${x + lf * 0.5}" y="${y + lf * 1.4}" font-size="${lf}">${r + 1}-${c + 1}（${r * t.cols + c + 1}/${total}）</text>`;
+    }
+    this.printLayer.innerHTML = g;
+    if (this.printCountEl) this.printCountEl.textContent = `${total}枚（横${t.cols}×縦${t.rows}）`;
+  }
+
+  private doPrint(): void {
+    const t = this.printTiles(), total = t.cols * t.rows;
+    const content = this.edgeLayer.outerHTML + this.nodeLayer.outerHTML;
+    const paperName = this.printPaper + (this.printOrient === "port" ? "縦" : "横");
+    const today = new Date().toLocaleDateString("ja-JP");
+    let pages = "";
+    for (let r = 0; r < t.rows; r++) for (let c = 0; c < t.cols; c++) {
+      const x0 = t.ox + c * t.stepW, y0 = t.oy + r * t.stepH, k = r * t.cols + c + 1;
+      pages += `<div class="pp"><div class="pp-in"><div class="pp-head">`
+        + `<span>組織ツリー（${paperName}・${Math.round(t.s * 100)}%・${today}）</span><span>ページ ${r + 1}-${c + 1} ／ ${k}/${total}</span></div>`
+        + `<svg class="pp-svg" xmlns="${SVG_NS}" width="${t.uWmm}mm" height="${t.uHmm}mm" viewBox="${x0} ${y0} ${t.stepW} ${t.stepH}" preserveAspectRatio="xMinYMin meet">`
+        + `<rect x="${x0}" y="${y0}" width="${t.stepW}" height="${t.stepH}" fill="#ffffff"/>${content}</svg></div></div>`;
+    }
+    const w = window.open("", "_blank");
+    if (!w) { this.toast("ポップアップがブロックされました。印刷するには許可してください。"); return; }
+    w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>印刷</title><style>${TREE_CSS}
+@page{ size:${t.pw}mm ${t.ph}mm; margin:0; }
+html,body{margin:0;background:#fff;}
+.pp{width:${t.pw}mm;height:${t.ph}mm;overflow:hidden;page-break-after:always;}
+.pp:last-child{page-break-after:auto;}
+.pp-in{box-sizing:border-box;width:100%;height:100%;padding:10mm;display:flex;flex-direction:column;}
+.pp-head{font-size:9pt;color:#44555f;border-bottom:1px solid #ccc;padding-bottom:2mm;margin-bottom:2mm;display:flex;justify-content:space-between;}
+.pp-svg{flex:1;}
+.kzt-open{display:none;}
+</style></head><body>${pages}</body></html>`);
+    w.document.close(); w.focus();
+    setTimeout(() => { try { w.print(); } catch { /* noop */ } }, 400);
   }
 
   // ---- 右側ズームバー ----

@@ -74,6 +74,21 @@ export const TREE_CSS = `
   background:#2d3b45; color:#fff; font-size:12.5px; padding:8px 16px; border-radius:20px; z-index:30;
   opacity:0; transition:opacity .2s; pointer-events:none; }
 .kzt-toast.kzt-show { opacity:1; }
+/* 印刷：ページ境界オーバーレイ（操作を妨げない） */
+.kzt-pgline { fill:none; stroke:#e2574c; stroke-width:2; stroke-dasharray:6 5; vector-effect:non-scaling-stroke; opacity:.9; pointer-events:none; }
+.kzt-pgfill { fill:#e2574c; opacity:.04; pointer-events:none; }
+.kzt-pglabel { fill:#e2574c; font-weight:800; opacity:.85; pointer-events:none; }
+/* 印刷：設定パネル（キャンバス右上） */
+.kzt-printpanel { position:absolute; top:12px; right:12px; z-index:20; width:220px;
+  background:#fff; border:1px solid #d7dee3; border-radius:10px; box-shadow:0 6px 20px rgba(0,0,0,.12);
+  padding:12px 14px; font-size:13px; }
+.kzt-pp-title { display:block; font-weight:700; color:#34495e; margin-bottom:10px; }
+.kzt-pp-row { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+.kzt-pp-lb { color:#5a6b78; }
+.kzt-pp-sel { height:30px; border:1px solid #c4c4c4; border-radius:6px; background:#fff; padding:0 8px; font-size:13px; }
+.kzt-pp-count { display:block; font-weight:700; color:#e2574c; margin:6px 0 10px; }
+.kzt-pp-actions { display:flex; flex-direction:column; gap:8px; }
+.kzt-pp-actions .kzt-btn { width:100%; justify-content:center; }
 `;
 
 let injected = false;

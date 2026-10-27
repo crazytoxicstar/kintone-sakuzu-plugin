@@ -339,6 +339,21 @@
   background:#2d3b45; color:#fff; font-size:12.5px; padding:8px 16px; border-radius:20px; z-index:30;
   opacity:0; transition:opacity .2s; pointer-events:none; }
 .kzt-toast.kzt-show { opacity:1; }
+/* \u5370\u5237\uFF1A\u30DA\u30FC\u30B8\u5883\u754C\u30AA\u30FC\u30D0\u30FC\u30EC\u30A4\uFF08\u64CD\u4F5C\u3092\u59A8\u3052\u306A\u3044\uFF09 */
+.kzt-pgline { fill:none; stroke:#e2574c; stroke-width:2; stroke-dasharray:6 5; vector-effect:non-scaling-stroke; opacity:.9; pointer-events:none; }
+.kzt-pgfill { fill:#e2574c; opacity:.04; pointer-events:none; }
+.kzt-pglabel { fill:#e2574c; font-weight:800; opacity:.85; pointer-events:none; }
+/* \u5370\u5237\uFF1A\u8A2D\u5B9A\u30D1\u30CD\u30EB\uFF08\u30AD\u30E3\u30F3\u30D0\u30B9\u53F3\u4E0A\uFF09 */
+.kzt-printpanel { position:absolute; top:12px; right:12px; z-index:20; width:220px;
+  background:#fff; border:1px solid #d7dee3; border-radius:10px; box-shadow:0 6px 20px rgba(0,0,0,.12);
+  padding:12px 14px; font-size:13px; }
+.kzt-pp-title { display:block; font-weight:700; color:#34495e; margin-bottom:10px; }
+.kzt-pp-row { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+.kzt-pp-lb { color:#5a6b78; }
+.kzt-pp-sel { height:30px; border:1px solid #c4c4c4; border-radius:6px; background:#fff; padding:0 8px; font-size:13px; }
+.kzt-pp-count { display:block; font-weight:700; color:#e2574c; margin:6px 0 10px; }
+.kzt-pp-actions { display:flex; flex-direction:column; gap:8px; }
+.kzt-pp-actions .kzt-btn { width:100%; justify-content:center; }
 `;
   var injected = false;
   function injectTreeCss(doc = document) {
@@ -359,6 +374,11 @@
       this.provider = provider;
       this.vb = { x: 0, y: 0, w: 1e3, h: SVG_H };
       this.rects = [];
+      // 印刷ページ境界オーバーレイ
+      this.printOn = false;
+      this.printPaper = "A4";
+      this.printOrient = "land";
+      this.printScale = 1;
       this.undoStack = [];
       this.fitW = 1e3;
       // ズーム100%（全体表示）基準
@@ -454,8 +474,9 @@
       this.undoBtn = this.mkBtn("\u5143\u306B\u623B\u3059", () => void this.undo());
       this.undoBtn.disabled = true;
       const fitBtn = this.mkBtn("\u5168\u4F53\u8868\u793A", () => this.fit());
+      const printBtn = this.mkBtn("\u5370\u5237", () => this.togglePrint());
       const fsBtn = this.mkBtn("\u5168\u753B\u9762", () => this.toggleFullscreen());
-      bar.append(brand, hint, spacer, expandBtn, collapseBtn, this.undoBtn, fitBtn, fsBtn);
+      bar.append(expandBtn, collapseBtn, this.undoBtn, fitBtn, printBtn, fsBtn, spacer, hint, brand);
       this.root.appendChild(bar);
       const wrap = document.createElement("div");
       wrap.className = "kzt-canvas-wrap";
@@ -474,10 +495,12 @@
       this.scene = document.createElementNS(SVG_NS, "g");
       this.edgeLayer = document.createElementNS(SVG_NS, "g");
       this.nodeLayer = document.createElementNS(SVG_NS, "g");
-      this.scene.append(this.edgeLayer, this.nodeLayer);
+      this.printLayer = document.createElementNS(SVG_NS, "g");
+      this.scene.append(this.edgeLayer, this.nodeLayer, this.printLayer);
       this.svg.appendChild(this.scene);
       wrap.appendChild(this.svg);
       wrap.appendChild(this.buildZoomBar());
+      wrap.appendChild(this.buildPrintPanel());
       this.toastEl = document.createElement("div");
       this.toastEl.className = "kzt-toast";
       wrap.appendChild(this.toastEl);
@@ -556,6 +579,7 @@
         if (!pos) continue;
         this.nodeLayer.appendChild(this.renderToggle(a.nodeId, pos, this.sizeOf(a.nodeId), vert));
       }
+      if (this.printOn) this.renderPageGrid();
       this.updateStatus();
     }
     // 直下（第1階層＝ルートの子）より下をすべて折りたたむ
@@ -886,6 +910,136 @@
       this.fitW = this.vb.w;
       this.fitH = this.vb.h;
       this.applyVB();
+    }
+    // ===== 印刷（ページ境界プレビュー＋分割印刷） =====
+    buildPrintPanel() {
+      const p = document.createElement("div");
+      p.className = "kzt-printpanel";
+      p.style.display = "none";
+      const title = document.createElement("span");
+      title.className = "kzt-pp-title";
+      title.textContent = "\u5370\u5237\uFF08A4\u306A\u3069\u306B\u5206\u5272\uFF09";
+      const row = (label, opts, val, on) => {
+        const wr = document.createElement("label");
+        wr.className = "kzt-pp-row";
+        const lb = document.createElement("span");
+        lb.className = "kzt-pp-lb";
+        lb.textContent = label;
+        wr.append(lb);
+        const s = document.createElement("select");
+        s.className = "kzt-pp-sel";
+        for (const [v, t] of opts) {
+          const o = document.createElement("option");
+          o.value = v;
+          o.textContent = t;
+          if (v === val) o.selected = true;
+          s.appendChild(o);
+        }
+        s.addEventListener("change", () => on(s.value));
+        wr.append(s);
+        return wr;
+      };
+      this.printCountEl = document.createElement("span");
+      this.printCountEl.className = "kzt-pp-count";
+      this.printCountEl.textContent = "\u2014";
+      const actions = document.createElement("div");
+      actions.className = "kzt-pp-actions";
+      actions.append(this.printCountEl, this.mkBtn("\u5370\u5237\u3059\u308B", () => this.doPrint()), this.mkBtn("\u9589\u3058\u308B", () => this.togglePrint(false)));
+      p.append(
+        title,
+        row("\u7528\u7D19", [["A4", "A4"], ["A3", "A3"]], this.printPaper, (v) => {
+          this.printPaper = v;
+          this.renderPageGrid();
+        }),
+        row("\u5411\u304D", [["land", "\u6A2A"], ["port", "\u7E26"]], this.printOrient, (v) => {
+          this.printOrient = v;
+          this.renderPageGrid();
+        }),
+        row("\u7E2E\u5C3A", [["0.5", "50%"], ["0.75", "75%"], ["1", "100%"], ["1.25", "125%"], ["1.5", "150%"]], String(this.printScale), (v) => {
+          this.printScale = Number(v);
+          this.renderPageGrid();
+        }),
+        actions
+      );
+      this.printPanel = p;
+      return p;
+    }
+    togglePrint(force) {
+      this.printOn = force === void 0 ? !this.printOn : force;
+      if (this.printPanel) this.printPanel.style.display = this.printOn ? "" : "none";
+      this.renderPageGrid();
+    }
+    /** 印刷の基準矩形＝配置物（部門枠）の外接矩形。原点＝左上。 */
+    printBox() {
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (const r of this.rects) {
+        minX = Math.min(minX, r.left);
+        minY = Math.min(minY, r.top);
+        maxX = Math.max(maxX, r.left + r.w);
+        maxY = Math.max(maxY, r.top + r.h);
+      }
+      if (!isFinite(minX)) return { x: 0, y: 0, w: 800, h: 600 };
+      return { x: minX, y: minY, w: Math.max(1, maxX - minX), h: Math.max(1, maxY - minY) };
+    }
+    printTiles() {
+      const paper = this.printPaper === "A3" ? [297, 420] : [210, 297];
+      const [pw, ph] = this.printOrient === "port" ? paper : [paper[1], paper[0]];
+      const s = this.printScale, PXMM = 96 / 25.4, M = 10, HD = 8;
+      const uWmm = pw - M * 2, uHmm = ph - M * 2 - HD;
+      const stepW = uWmm * PXMM / s, stepH = uHmm * PXMM / s;
+      const cb = this.printBox();
+      const cols = Math.max(1, Math.ceil(cb.w / stepW)), rows = Math.max(1, Math.ceil(cb.h / stepH));
+      return { pw, ph, s, uWmm, uHmm, stepW, stepH, cols, rows, ox: cb.x, oy: cb.y };
+    }
+    renderPageGrid() {
+      if (!this.printLayer) return;
+      if (!this.printOn) {
+        this.printLayer.innerHTML = "";
+        return;
+      }
+      const t = this.printTiles(), total = t.cols * t.rows;
+      const lf = Math.max(16, t.stepW * 0.028);
+      let g = "";
+      for (let r = 0; r < t.rows; r++) for (let c = 0; c < t.cols; c++) {
+        const x = t.ox + c * t.stepW, y = t.oy + r * t.stepH;
+        g += `<rect class="kzt-pgfill" x="${x}" y="${y}" width="${t.stepW}" height="${t.stepH}"/><rect class="kzt-pgline" x="${x}" y="${y}" width="${t.stepW}" height="${t.stepH}"/><text class="kzt-pglabel" x="${x + lf * 0.5}" y="${y + lf * 1.4}" font-size="${lf}">${r + 1}-${c + 1}\uFF08${r * t.cols + c + 1}/${total}\uFF09</text>`;
+      }
+      this.printLayer.innerHTML = g;
+      if (this.printCountEl) this.printCountEl.textContent = `${total}\u679A\uFF08\u6A2A${t.cols}\xD7\u7E26${t.rows}\uFF09`;
+    }
+    doPrint() {
+      const t = this.printTiles(), total = t.cols * t.rows;
+      const content = this.edgeLayer.outerHTML + this.nodeLayer.outerHTML;
+      const paperName = this.printPaper + (this.printOrient === "port" ? "\u7E26" : "\u6A2A");
+      const today = (/* @__PURE__ */ new Date()).toLocaleDateString("ja-JP");
+      let pages = "";
+      for (let r = 0; r < t.rows; r++) for (let c = 0; c < t.cols; c++) {
+        const x0 = t.ox + c * t.stepW, y0 = t.oy + r * t.stepH, k = r * t.cols + c + 1;
+        pages += `<div class="pp"><div class="pp-in"><div class="pp-head"><span>\u7D44\u7E54\u30C4\u30EA\u30FC\uFF08${paperName}\u30FB${Math.round(t.s * 100)}%\u30FB${today}\uFF09</span><span>\u30DA\u30FC\u30B8 ${r + 1}-${c + 1} \uFF0F ${k}/${total}</span></div><svg class="pp-svg" xmlns="${SVG_NS}" width="${t.uWmm}mm" height="${t.uHmm}mm" viewBox="${x0} ${y0} ${t.stepW} ${t.stepH}" preserveAspectRatio="xMinYMin meet"><rect x="${x0}" y="${y0}" width="${t.stepW}" height="${t.stepH}" fill="#ffffff"/>${content}</svg></div></div>`;
+      }
+      const w = window.open("", "_blank");
+      if (!w) {
+        this.toast("\u30DD\u30C3\u30D7\u30A2\u30C3\u30D7\u304C\u30D6\u30ED\u30C3\u30AF\u3055\u308C\u307E\u3057\u305F\u3002\u5370\u5237\u3059\u308B\u306B\u306F\u8A31\u53EF\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
+        return;
+      }
+      w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>\u5370\u5237</title><style>${TREE_CSS}
+@page{ size:${t.pw}mm ${t.ph}mm; margin:0; }
+html,body{margin:0;background:#fff;}
+.pp{width:${t.pw}mm;height:${t.ph}mm;overflow:hidden;page-break-after:always;}
+.pp:last-child{page-break-after:auto;}
+.pp-in{box-sizing:border-box;width:100%;height:100%;padding:10mm;display:flex;flex-direction:column;}
+.pp-head{font-size:9pt;color:#44555f;border-bottom:1px solid #ccc;padding-bottom:2mm;margin-bottom:2mm;display:flex;justify-content:space-between;}
+.pp-svg{flex:1;}
+.kzt-open{display:none;}
+</style></head><body>${pages}</body></html>`);
+      w.document.close();
+      w.focus();
+      setTimeout(() => {
+        try {
+          w.print();
+        } catch {
+        }
+      }, 400);
     }
     // ---- 右側ズームバー ----
     buildZoomBar() {

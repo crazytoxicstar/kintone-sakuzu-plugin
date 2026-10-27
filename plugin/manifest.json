@@ -1,6 +1,6 @@
 {
   "manifest_version": 1,
-  "version": 29,
+  "version": 30,
   "type": "APP",
   "name": {
     "ja": "kintone作図プラグイン",
