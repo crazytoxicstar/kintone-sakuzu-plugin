@@ -1,10 +1,10 @@
 {
   "manifest_version": 1,
-  "version": 27,
+  "version": 28,
   "type": "APP",
   "name": {
-    "ja": "レコード図ツール（kintone-zu）",
-    "en": "Record Diagram Tool"
+    "ja": "kintone作図プラグイン",
+    "en": "kintone Diagram Plugin"
   },
   "description": {
     "ja": "一覧のカスタマイズビュー上でレコードをオブジェクト化し、自由配置・線で接続して図を描くツール。",
