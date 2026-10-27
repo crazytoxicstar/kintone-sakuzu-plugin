@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>分割印刷デモ（レコード図ツール）</title>
+<style>
+  :root { --ink:#2d3b45; --line:#cfd8de; --accent:#3498db; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:#eef1f4; color:var(--ink);
+    font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif; }
+  .wrap { max-width:1100px; margin:0 auto; padding:16px; }
+  .note { font-size:13px; color:#5a6b78; line-height:1.7; margin:0 0 12px; }
+  .note b { color:var(--ink); }
+  .bar { display:flex; flex-wrap:wrap; align-items:center; gap:12px 16px;
+    background:#fff; border:1px solid #e3e8ea; border-radius:10px; padding:12px 14px; margin-bottom:12px; }
+  .bar label { font-size:13px; display:flex; align-items:center; gap:6px; }
+  .bar .sep { width:1px; height:22px; background:#e3e8ea; }
+  .count { font-size:13px; font-weight:700; color:var(--accent); }
+  .btn { height:34px; padding:0 16px; font-size:13px; font-weight:600; border-radius:7px;
+    border:1px solid var(--accent); background:var(--accent); color:#fff; cursor:pointer; }
+  .btn:hover { background:#2f88c5; }
+  .stage { background:#fff; border:1px solid #e3e8ea; border-radius:10px; padding:10px; overflow:auto; }
+  #scene { width:100%; height:auto; display:block; background:
+    repeating-linear-gradient(0deg,#fafbfc,#fafbfc 23px,#f0f3f5 24px),
+    repeating-linear-gradient(90deg,#fafbfc,#fafbfc 23px,#f0f3f5 24px); }
+
+  .box { fill:#fff; stroke:var(--line); stroke-width:1.2; }
+  .box.root { fill:#eef6fb; stroke:#9bc4e2; }
+  .t { font-size:13px; font-weight:700; fill:var(--ink); }
+  .edge { fill:none; stroke:#b7c2cb; stroke-width:1.4; }
+  /* 部門枠＋メンバー */
+  .frame { fill:#f7fafc; stroke:#9bb4cc; stroke-width:1.4; }
+  .fhead { font-size:13px; font-weight:800; fill:#2d3b45; }
+  .mbox { fill:#fff; stroke:#cfd8de; stroke-width:1; }
+  .mname { font-size:11.5px; font-weight:700; fill:#2d3b45; }
+  .msub { font-size:10px; fill:#7a8a96; }
+  /* 自由配置 */
+  .circle { fill:#fff; stroke:#cbb; stroke-width:1.3; }
+  .hex { fill:#fff; stroke:#c6a; stroke-width:1.3; }
+  .hlabel { font-size:11px; font-weight:700; fill:#5a3b55; }
+  /* ページ境界オーバーレイ */
+  .pgline { stroke:#e2574c; stroke-width:2; stroke-dasharray:6 5; opacity:.9; }
+  .pgfill { fill:#e2574c; opacity:.04; }
+  .pglabel { fill:#e2574c; font-size:16px; font-weight:800; opacity:.85; }
+
+  #printArea { display:none; }
+  .pp { position:relative; background:#fff; overflow:hidden; }
+  .pp-inner { width:100%; height:100%; display:flex; flex-direction:column; }
+  .pp-head { font-size:9pt; color:#44555f; border-bottom:1px solid #ccc;
+    padding-bottom:2mm; margin-bottom:2mm; display:flex; justify-content:space-between; }
+  .pp-svg { flex:1; }
+  .pp .box,.pp .frame,.pp .mbox,.pp .circle,.pp .hex { stroke:#333; }
+  .pp .t,.pp .fhead,.pp .mname,.pp .hlabel { fill:#111; }
+  .pp .msub { fill:#444; }
+  .pp .edge { stroke:#555; }
+
+  @media print {
+    body { background:#fff; }
+    .wrap { display:none !important; }
+    #printArea { display:block; }
+    .pp { page-break-after: always; break-after: page; }
+    .pp:last-child { page-break-after: auto; break-after: auto; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="note">
+    <b>分割印刷（ポスター印刷方式）のデモ</b>です（kintone不要）。<b>レイアウトを切り替えて</b>、各レイアウトでの分割のされ方を確認できます。<br>
+    「ページ境界を表示」で、選んだ用紙・向き・縮尺のときに図が何ページに分かれるかを赤枠で確認できます（<b>各赤枠＝A4の1ページ</b>、番号は 行-列（通し/総数））。<br>
+    「印刷」でタイル分割して印刷（印刷ダイアログのプレビューで確認、PDF保存も可）。
+  </p>
+
+  <div class="bar">
+    <label>レイアウト
+      <select id="layout">
+        <option value="treeV">組織図（縦ツリー）</option>
+        <option value="treeH">組織図（横ツリー）</option>
+        <option value="dept">部門枠＋メンバー（固定表示の実体）</option>
+        <option value="free">自由配置・標準</option>
+        <option value="hex">自由配置・ハニカム</option>
+      </select>
+    </label>
+    <span class="sep"></span>
+    <label>用紙
+      <select id="paper"><option value="A4">A4</option><option value="A3">A3</option></select>
+    </label>
+    <label>向き
+      <select id="orient"><option value="land">横</option><option value="port">縦</option></select>
+    </label>
+    <label>縮尺
+      <select id="scale">
+        <option value="0.5">50%</option>
+        <option value="0.75">75%</option>
+        <option value="1" selected>100%（原寸）</option>
+        <option value="1.25">125%</option>
+        <option value="1.5">150%</option>
+      </select>
+    </label>
+    <span class="sep"></span>
+    <label><input type="checkbox" id="showgrid" checked> ページ境界を表示</label>
+    <span class="count" id="count">—</span>
+    <span style="flex:1"></span>
+    <button class="btn" id="print">印刷</button>
+  </div>
+
+  <div class="stage">
+    <svg id="scene" xmlns="http://www.w3.org/2000/svg"></svg>
+  </div>
+</div>
+
+<div id="printArea"></div>
+
+<script>
+const SVG="http://www.w3.org/2000/svg";
+const PX_PER_MM = 96/25.4;
+const MARGIN_MM = 10, HEADER_MM = 8;
+const esc=s=>String(s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+function rng(seed){ let s=seed; return ()=>{ s=(s*1103515245+12345)&0x7fffffff; return s/0x7fffffff; }; }
+
+// ========== レイアウト生成（各 {inner, w, h} を返す） ==========
+const GEN = {
+  treeV(){
+    const ORG={name:"本社",children:[
+      {name:"管理本部",children:[{name:"人事部"},{name:"総務部"},{name:"経理部",children:[{name:"財務課"},{name:"会計課"}]}]},
+      {name:"営業本部",children:[{name:"第一営業部",children:[{name:"営業1課"},{name:"営業2課"}]},{name:"第二営業部"},{name:"営業企画部"}]},
+      {name:"開発本部",children:[{name:"基盤開発部",children:[{name:"SRE課"},{name:"QA課"}]},{name:"製品開発部",children:[{name:"Web課"},{name:"モバイル課"}]}]},
+      {name:"製造本部",children:[{name:"生産管理部"},{name:"品質保証部"},{name:"購買部"}]},
+    ]};
+    const BW=168,BH=52,XS=190,YS=120,P=20; let leaf=0,md=0;
+    (function L(n,d){n.depth=d;md=Math.max(md,d);n.y=d*YS+P;
+      if(n.children){n.children.forEach(c=>L(c,d+1));n.x=(n.children[0].x+n.children.at(-1).x)/2;}
+      else{n.x=leaf*XS+P;leaf++;}})(ORG,0);
+    const ns=[];(function c(n){ns.push(n);(n.children||[]).forEach(c);})(ORG);
+    let e="",b="";
+    for(const n of ns)for(const c of(n.children||[])){const x1=n.x+BW/2,y1=n.y+BH,x2=c.x+BW/2,y2=c.y,my=(y1+y2)/2;
+      e+=`<path class="edge" d="M${x1} ${y1} V${my} H${x2} V${y2}"/>`;}
+    for(const n of ns)b+=`<g transform="translate(${n.x} ${n.y})"><rect class="box${n.depth===0?' root':''}" width="${BW}" height="${BH}" rx="6"/><text class="t" x="${BW/2}" y="${BH/2+5}" text-anchor="middle">${esc(n.name)}</text></g>`;
+    return {inner:e+b, w:leaf*XS+P*2-(XS-BW), h:md*YS+P*2+BH};
+  },
+  treeH(){
+    const ORG={name:"本社",children:[
+      {name:"管理本部",children:[{name:"人事部"},{name:"総務部"},{name:"経理部",children:[{name:"財務課"},{name:"会計課"}]}]},
+      {name:"営業本部",children:[{name:"第一営業部",children:[{name:"営業1課"},{name:"営業2課"}]},{name:"第二営業部"}]},
+      {name:"開発本部",children:[{name:"基盤開発部",children:[{name:"SRE課"},{name:"QA課"}]},{name:"製品開発部"}]},
+    ]};
+    const BW=150,BH=46,XS=210,YS=66,P=20; let leaf=0,md=0;
+    (function L(n,d){n.depth=d;md=Math.max(md,d);n.x=d*XS+P;
+      if(n.children){n.children.forEach(c=>L(c,d+1));n.y=(n.children[0].y+n.children.at(-1).y)/2;}
+      else{n.y=leaf*YS+P;leaf++;}})(ORG,0);
+    const ns=[];(function c(n){ns.push(n);(n.children||[]).forEach(c);})(ORG);
+    let e="",b="";
+    for(const n of ns)for(const c of(n.children||[])){const x1=n.x+BW,y1=n.y+BH/2,x2=c.x,y2=c.y+BH/2,mx=(x1+x2)/2;
+      e+=`<path class="edge" d="M${x1} ${y1} H${mx} V${y2} H${x2}"/>`;}
+    for(const n of ns)b+=`<g transform="translate(${n.x} ${n.y})"><rect class="box${n.depth===0?' root':''}" width="${BW}" height="${BH}" rx="6"/><text class="t" x="${BW/2}" y="${BH/2+5}" text-anchor="middle">${esc(n.name)}</text></g>`;
+    return {inner:e+b, w:md*XS+P*2+BW, h:leaf*YS+P*2+BH};
+  },
+  dept(){
+    const D={name:"本社",members:["社長","副社長"],children:[
+      {name:"管理本部",members:["本部長","部員A","部員B"],children:[
+        {name:"人事部",members:["部長","採用","労務"]},{name:"総務部",members:["部長","庶務","施設","受付"]}]},
+      {name:"営業本部",members:["本部長","秘書"],children:[
+        {name:"第一営業部",members:["部長","主任","営業","営業"]},{name:"第二営業部",members:["部長","営業","営業"]}]},
+      {name:"開発本部",members:["本部長","PM"],children:[
+        {name:"基盤開発部",members:["部長","SRE","QA"]},{name:"製品開発部",members:["部長","Web","モバイル","UX"]}]},
+    ]};
+    const MW=150,MH=40,FP=10,HEAD=24,XGAP=28,ROWH=300;
+    function fw(){return MW+FP*2;}
+    function fh(n){return HEAD+FP + n.members.length*(MH+6);}
+    let cur=20,md=0;
+    (function L(n,d){n.depth=d;md=Math.max(md,d);n.y=20+d*ROWH;
+      if(n.children){n.children.forEach(c=>L(c,d+1));n.x=(n.children[0].x+n.children.at(-1).x)/2;}
+      else{n.x=cur;cur+=fw()+XGAP;}})(D,0);
+    const ns=[];(function c(n){ns.push(n);(n.children||[]).forEach(c);})(D);
+    let e="",b="";
+    for(const n of ns)for(const c of(n.children||[])){const x1=n.x+fw()/2,y1=n.y+fh(n),x2=c.x+fw()/2,y2=c.y,my=(y1+y2)/2;
+      e+=`<path class="edge" d="M${x1} ${y1} V${my} H${x2} V${y2}"/>`;}
+    for(const n of ns){
+      const h=fh(n);
+      b+=`<g transform="translate(${n.x} ${n.y})"><rect class="frame" width="${fw()}" height="${h}" rx="8"/>`
+        +`<text class="fhead" x="${fw()/2}" y="18" text-anchor="middle">${esc(n.name)}</text>`;
+      n.members.forEach((m,i)=>{const my=HEAD+FP/2+i*(MH+6);
+        b+=`<g transform="translate(${FP} ${my})"><rect class="mbox" width="${MW}" height="${MH}" rx="5"/>`
+          +`<text class="mname" x="8" y="16">${esc(m)}</text><text class="msub" x="8" y="30">社員番号 / 役職</text></g>`;});
+      b+=`</g>`;
+    }
+    return {inner:e+b, w:cur+10, h:20+md*ROWH+Math.max(...ns.filter(n=>!n.children).map(fh))+20};
+  },
+  free(){
+    const r=rng(7); const N=18, BW=150, BH=52, AW=1700, AH=1050;
+    const pos=[]; for(let i=0;i<N;i++) pos.push({x:40+r()*(AW-BW-80), y:40+r()*(AH-BH-80), name:"ノード"+(i+1)});
+    let e="",b="";
+    for(let i=0;i<N;i++){ // 各ノードを近い別ノードへ1本つなぐ
+      let j=-1,best=1e9; for(let k=0;k<N;k++){if(k===i)continue;const dx=pos[i].x-pos[k].x,dy=pos[i].y-pos[k].y,dd=dx*dx+dy*dy; if(dd<best){best=dd;j=k;}}
+      if(j>i){const a=pos[i],c=pos[j];e+=`<path class="edge" d="M${a.x+BW/2} ${a.y+BH/2} L${c.x+BW/2} ${c.y+BH/2}"/>`;}
+    }
+    for(const p of pos)b+=`<g transform="translate(${p.x} ${p.y})"><rect class="box" width="${BW}" height="${BH}" rx="6"/><text class="t" x="${BW/2}" y="${BH/2+5}" text-anchor="middle">${esc(p.name)}</text></g>`;
+    return {inner:e+b, w:AW, h:AH};
+  },
+  hex(){
+    const R=50, COLS=8, ROWS=6, P=30;
+    const hx=(cx,cy)=>{let p="";for(let i=0;i<6;i++){const a=Math.PI/180*(60*i);p+=(cx+R*Math.cos(a))+","+(cy+R*Math.sin(a))+" ";}return p.trim();};
+    const stepX=R*1.5, stepY=R*Math.sqrt(3); let b=""; let maxX=0,maxY=0,k=0;
+    for(let c=0;c<COLS;c++)for(let rr=0;rr<ROWS;rr++){
+      const cx=P+R+c*stepX, cy=P+R+rr*stepY+(c%2? stepY/2:0); k++;
+      maxX=Math.max(maxX,cx+R); maxY=Math.max(maxY,cy+R);
+      b+=`<polygon class="hex" points="${hx(cx,cy)}"/><text class="hlabel" x="${cx}" y="${cy+4}" text-anchor="middle">#${k}</text>`;
+    }
+    return {inner:b, w:maxX+P, h:maxY+P};
+  },
+};
+
+// ========== 状態と描画 ==========
+let CONTENT_W=0, CONTENT_H=0, SCENE_INNER="";
+function setLayout(kind){ const g=GEN[kind](); SCENE_INNER=g.inner; CONTENT_W=g.w; CONTENT_H=g.h; }
+
+function tiling(){
+  const paper = paperSel.value==="A3" ? [297,420] : [210,297];
+  const [pw,ph] = orientSel.value==="port" ? paper : [paper[1],paper[0]];
+  const s=parseFloat(scaleSel.value);
+  const uW=pw-MARGIN_MM*2, uH=ph-MARGIN_MM*2-HEADER_MM;
+  const stepW=(uW*PX_PER_MM)/s, stepH=(uH*PX_PER_MM)/s;
+  const cols=Math.max(1,Math.ceil(CONTENT_W/stepW)), rows=Math.max(1,Math.ceil(CONTENT_H/stepH));
+  return {pw,ph,s,uW,uH,stepW,stepH,cols,rows};
+}
+
+const scene=document.getElementById("scene");
+const layoutSel=document.getElementById("layout");
+const paperSel=document.getElementById("paper");
+const orientSel=document.getElementById("orient");
+const scaleSel=document.getElementById("scale");
+const showgrid=document.getElementById("showgrid");
+const countEl=document.getElementById("count");
+
+function render(){
+  const t=tiling();
+  scene.setAttribute("viewBox",`0 0 ${CONTENT_W} ${CONTENT_H}`);
+  scene.setAttribute("preserveAspectRatio","xMidYMid meet");
+  let grid="";
+  if(showgrid.checked){
+    for(let r=0;r<t.rows;r++)for(let c=0;c<t.cols;c++){
+      const x=c*t.stepW,y=r*t.stepH;
+      grid+=`<rect class="pgfill" x="${x}" y="${y}" width="${t.stepW}" height="${t.stepH}"/>`
+        +`<rect class="pgline" fill="none" x="${x}" y="${y}" width="${t.stepW}" height="${t.stepH}"/>`
+        +`<text class="pglabel" x="${x+8}" y="${y+22}">${r+1}-${c+1}（${r*t.cols+c+1}/${t.cols*t.rows}）</text>`;
+    }
+  }
+  scene.innerHTML=SCENE_INNER+grid;
+  countEl.textContent=`${t.cols*t.rows}枚（横${t.cols}×縦${t.rows}）`;
+}
+function relayout(){ setLayout(layoutSel.value); render(); }
+[paperSel,orientSel,scaleSel,showgrid].forEach(el=>el.addEventListener("change",render));
+layoutSel.addEventListener("change",relayout);
+relayout();
+
+let pageStyle=document.createElement("style"); document.head.appendChild(pageStyle);
+document.getElementById("print").addEventListener("click",()=>{
+  const t=tiling();
+  pageStyle.textContent=`@page{ size:${t.pw}mm ${t.ph}mm; margin:0; }`;
+  const total=t.cols*t.rows;
+  const paperName=paperSel.value+(orientSel.value==="port"?"縦":"横");
+  const title=layoutSel.options[layoutSel.selectedIndex].text;
+  const today=new Date().toLocaleDateString("ja-JP");
+  let html="";
+  for(let r=0;r<t.rows;r++)for(let c=0;c<t.cols;c++){
+    const x0=c*t.stepW,y0=r*t.stepH,k=r*t.cols+c+1;
+    html+=`<div class="pp" style="width:${t.pw}mm;height:${t.ph}mm;"><div class="pp-inner" style="padding:${MARGIN_MM}mm;">`
+      +`<div class="pp-head"><span>${esc(title)}（${paperName}・${Math.round(t.s*100)}%・${today}）</span>`
+      +`<span>ページ ${r+1}-${c+1} ／ ${k}/${total}</span></div>`
+      +`<svg class="pp-svg" xmlns="${SVG}" width="${t.uW}mm" height="${t.uH}mm" viewBox="${x0} ${y0} ${t.stepW} ${t.stepH}" preserveAspectRatio="xMinYMin meet">${SCENE_INNER}</svg>`
+      +`</div></div>`;
+  }
+  document.getElementById("printArea").innerHTML=html;
+  window.print();
+});
+</script>
+</body>
+</html>

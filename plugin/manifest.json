@@ -1,0 +1,24 @@
+{
+  "manifest_version": 1,
+  "version": 27,
+  "type": "APP",
+  "name": {
+    "ja": "レコード図ツール（kintone-zu）",
+    "en": "Record Diagram Tool"
+  },
+  "description": {
+    "ja": "一覧のカスタマイズビュー上でレコードをオブジェクト化し、自由配置・線で接続して図を描くツール。",
+    "en": "Place records as objects on a list custom view and connect them with lines to draw diagrams."
+  },
+  "icon": "image/icon.png",
+  "desktop": {
+    "js": ["js/desktop.js"],
+    "css": ["css/desktop.css"]
+  },
+  "config": {
+    "html": "html/config.html",
+    "js": ["js/config.js"],
+    "css": ["css/config.css"],
+    "required_params": ["views"]
+  }
+}

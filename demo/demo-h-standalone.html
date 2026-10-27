@@ -1,0 +1,1341 @@
+<!doctype html><html lang="ja"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1"><title>組織ツリー（横）デモ</title>
+<style>*{box-sizing:border-box}body{margin:0;padding:20px;background:#eef1f4;color:#2d3b45;font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif}
+.page{max-width:1180px;margin:0 auto}h1{font-size:18px;margin:0 0 6px}.lead{font-size:13px;color:#6b7a86;line-height:1.7;margin:0 0 16px}.lead b{color:#2d3b45}</style></head><body>
+<div class="page"><h1>組織ツリー（横）デモ</h1><p class="lead">固定表示（ツリー）。階層は<b>階層コード1本</b>（例 1 / 1-1 / 1-1-1）で決まります（並び順＝コード順、親＝末尾を削った値、深さ＝区切りの数）。<b>ドラッグで親を付け替え</b>るとコードを書き換えて配下ごと移動します。</p>
+<div id="app"></div></div>
+<script>window.__KZT_DIR__="horizontal";</script><script>"use strict";
+(() => {
+  // src/tree/demo-data.ts
+  var DEMO_ASSIGNMENTS = [
+    {
+      "recordId": "1",
+      "haichiId": "A001",
+      "shainNo": "E001",
+      "name": "\u4F50\u85E4 \u4E00\u90CE",
+      "deptCode": "D001",
+      "deptName": "\u7D4C\u55B6",
+      "posName": "\u4EE3\u8868\u53D6\u7DE0\u5F79\u793E\u9577",
+      "bossHaichiId": "",
+      "assignType": "\u4E3B\u52D9",
+      "effort": "100"
+    },
+    {
+      "recordId": "2",
+      "haichiId": "A002",
+      "shainNo": "E002",
+      "name": "\u9234\u6728 \u5065\u6CBB",
+      "deptCode": "D100",
+      "deptName": "\u7D4C\u55B6\u7BA1\u7406\u672C\u90E8",
+      "posName": "\u672C\u90E8\u9577",
+      "bossHaichiId": "A001",
+      "assignType": "\u4E3B\u52D9",
+      "effort": "100"
+    },
+    {
+      "recordId": "3",
+      "haichiId": "A003",
+      "shainNo": "E003",
+      "name": "\u9AD8\u6A4B \u6B63\u4EBA",
+      "deptCode": "D200",
+      "deptName": "\u55B6\u696D\u672C\u90E8",
+      "posName": "\u672C\u90E8\u9577",
+      "bossHaichiId": "A001",
+      "assignType": "\u4E3B\u52D9",
+      "effort": "100"
+    },
+    {
+      "recordId": "4",
+      "haichiId": "A004",
+      "shainNo": "E004",
+      "name": "\u7530\u4E2D \u6D0B\u5B50",
+      "deptCode": "D300",
+      "deptName": "\u958B\u767A\u672C\u90E8",
+      "posName": "\u672C\u90E8\u9577",
+      "bossHaichiId": "A001",
+      "assignType": "\u4E3B\u52D9",
+      "effort": "100"
+    },
+    {
+      "recordId": "5",
+      "haichiId": "A005",
+      "shainNo": "E005",
+      "name": "\u4F0A\u85E4 \u771F\u7531\u7F8E",
+      "deptCode": "D110",
+      "deptName": "\u4EBA\u4E8B\u7DCF\u52D9\u90E8",
+      "posName": "\u90E8\u9577",
+      "bossHaichiId": "A002",
+      "assignType": "\u4E3B\u52D9",
+      "effort": "100"
+    },
+    {
+      "recordId": "6",
+      "haichiId": "A006",
+      "shainNo": "E006",
+      "name": "\u6E21\u8FBA \u9686",
+      "deptCode": "D120",
+      "deptName": "\u7D4C\u7406\u8CA1\u52D9\u90E8",
+      "posName": "\u90E8\u9577",
+      "bossHaichiId": "A002",
+      "assignType": "\u4E3B\u52D9",
+      "effort": "100"
+    },
+    {
+      "recordId": "7",
+      "haichiId": "A007",
+      "shainNo": "E007",
+      "name": "\u5C71\u672C \u5927\u8F14",
+      "deptCode": "D210",
+      "deptName": "\u7B2C\u4E00\u55B6\u696D\u90E8",
+      "posName": "\u90E8\u9577",
+      "bossHaichiId": "A003",
+      "assignType": "\u4E3B\u52D9",
+      "effort": "100"
+    },
+    {
+      "recordId": "8",
+      "haichiId": "A008",
+      "shainNo": "E008",
+      "name": "\u4E2D\u6751 \u6075",
+      "deptCode": "D220",
+      "deptName": "\u7B2C\u4E8C\u55B6\u696D\u90E8",
+      "posName": "\u90E8\u9577",
+      "bossHaichiId": "A003",
+      "assignType": "\u4E3B\u52D9",
+      "effort": "100"
+    },
+    {
+      "recordId": "9",
+      "haichiId": "A009",
+      "shainNo": "E009",
+      "name": "\u5C0F\u6797 \u8AA0",
+      "deptCode": "D310",
+      "deptName": "\u30D7\u30ED\u30C0\u30AF\u30C8\u958B\u767A\u90E8",
+      "posName": "\u90E8\u9577",
+      "bossHaichiId": "A004",
+      "assignType": "\u4E3B\u52D9",
+      "effort": "80"
+    },
+    {
+      "recordId": "10",
+      "haichiId": "A010",
+      "shainNo": "E010",
+      "name": "\u52A0\u85E4 \u5F69",
+      "deptCode": "D320",
+      "deptName": "\u54C1\u8CEA\u4FDD\u8A3C\u90E8",
+      "posName": "\u90E8\u9577",
+      "bossHaichiId": "A004",
+      "assignType": "\u4E3B\u52D9",
+      "effort": "100"
+    },
+    {
+      "recordId": "11",
+      "haichiId": "A011",
+      "shainNo": "E011",
+      "name": "\u5409\u7530 \u76F4\u6A39",
+      "deptCode": "D110",
+      "deptName": "\u4EBA\u4E8B\u7DCF\u52D9\u90E8",
+      "posName": "\u8AB2\u9577",
+      "bossHaichiId": "A005",
+      "assignType": "\u4E3B\u52D9",
+      "effort": "70"
+    },
+    {
+      "recordId": "12",
+      "haichiId": "A012",
+      "shainNo": "E012",
+      "name": "\u5C71\u7530 \u5F69\u9999",
+      "deptCode": "D110",
+      "deptName": "\u4EBA\u4E8B\u7DCF\u52D9\u90E8",
+      "posName": "\u4E3B\u4EFB",
+      "bossHaichiId": "A011",
+      "assignType": "\u4E3B\u52D9",
+      "effort": "100"
+    },
+    {
+      "recordId": "13",
+      "haichiId": "A013",
+      "shainNo": "E013",
+      "name": "\u4F50\u3005\u6728 \u4EAE",
+      "deptCode": "D110",
+      "deptName": "\u4EBA\u4E8B\u7DCF\u52D9\u90E8",
+      "posName": "\u4E00\u822C",
+      "bossHaichiId": "A011",
+      "assignType": "\u4E3B\u52D9",
+      "effort": "100"
+    },
+    {
+      "recordId": "14",
+      "haichiId": "A014",
+      "shainNo": "E014",
+      "name": "\u5C71\u53E3 \u8061",
+      "deptCode": "D120",
+      "deptName": "\u7D4C\u7406\u8CA1\u52D9\u90E8",
+      "posName": "\u8AB2\u9577",
+      "bossHaichiId": "A006",
+      "assignType": "\u4E3B\u52D9",
+      "effort": "100"
+    },
+    {
+      "recordId": "15",
+      "haichiId": "A015",
+      "shainNo": "E015",
+      "name": "\u677E\u672C \u4F73\u5948",
+      "deptCode": "D120",
+      "deptName": "\u7D4C\u7406\u8CA1\u52D9\u90E8",
+      "posName": "\u4E00\u822C",
+      "bossHaichiId": "A014",
+      "assignType": "\u4E3B\u52D9",
+      "effort": "100"
+    },
+    {
+      "recordId": "16",
+      "haichiId": "A016",
+      "shainNo": "E016",
+      "name": "\u4E95\u4E0A \u62D3\u4E5F",
+      "deptCode": "D210",
+      "deptName": "\u7B2C\u4E00\u55B6\u696D\u90E8",
+      "posName": "\u8AB2\u9577",
+      "bossHaichiId": "A007",
+      "assignType": "\u4E3B\u52D9",
+      "effort": "100"
+    },
+    {
+      "recordId": "17",
+      "haichiId": "A017",
+      "shainNo": "E017",
+      "name": "\u6728\u6751 \u76F4\u4EBA",
+      "deptCode": "D210",
+      "deptName": "\u7B2C\u4E00\u55B6\u696D\u90E8",
+      "posName": "\u4FC2\u9577",
+      "bossHaichiId": "A016",
+      "assignType": "\u4E3B\u52D9",
+      "effort": "70"
+    },
+    {
+      "recordId": "18",
+      "haichiId": "A018",
+      "shainNo": "E018",
+      "name": "\u6797 \u7F8E\u54B2",
+      "deptCode": "D210",
+      "deptName": "\u7B2C\u4E00\u55B6\u696D\u90E8",
+      "posName": "\u4E00\u822C",
+      "bossHaichiId": "A016",
+      "assignType": "\u4E3B\u52D9",
+      "effort": "100"
+    },
+    {
+      "recordId": "19",
+      "haichiId": "A019",
+      "shainNo": "E019",
+      "name": "\u6E05\u6C34 \u7FD4\u592A",
+      "deptCode": "D210",
+      "deptName": "\u7B2C\u4E00\u55B6\u696D\u90E8",
+      "posName": "\u4E00\u822C",
+      "bossHaichiId": "A016",
+      "assignType": "\u4E3B\u52D9",
+      "effort": "100"
+    },
+    {
+      "recordId": "20",
+      "haichiId": "A020",
+      "shainNo": "E020",
+      "name": "\u658E\u85E4 \u7531\u9999",
+      "deptCode": "D220",
+      "deptName": "\u7B2C\u4E8C\u55B6\u696D\u90E8",
+      "posName": "\u8AB2\u9577",
+      "bossHaichiId": "A008",
+      "assignType": "\u4E3B\u52D9",
+      "effort": "100"
+    },
+    {
+      "recordId": "21",
+      "haichiId": "A021",
+      "shainNo": "E021",
+      "name": "\u68EE \u5065\u592A",
+      "deptCode": "D220",
+      "deptName": "\u7B2C\u4E8C\u55B6\u696D\u90E8",
+      "posName": "\u4E3B\u4EFB",
+      "bossHaichiId": "A020",
+      "assignType": "\u4E3B\u52D9",
+      "effort": "100"
+    },
+    {
+      "recordId": "22",
+      "haichiId": "A022",
+      "shainNo": "E022",
+      "name": "\u6C60\u7530 \u5948\u3005",
+      "deptCode": "D220",
+      "deptName": "\u7B2C\u4E8C\u55B6\u696D\u90E8",
+      "posName": "\u4E00\u822C",
+      "bossHaichiId": "A020",
+      "assignType": "\u4E3B\u52D9",
+      "effort": "100"
+    },
+    {
+      "recordId": "23",
+      "haichiId": "A023",
+      "shainNo": "E023",
+      "name": "\u6A4B\u672C \u525B",
+      "deptCode": "D310",
+      "deptName": "\u30D7\u30ED\u30C0\u30AF\u30C8\u958B\u767A\u90E8",
+      "posName": "\u8AB2\u9577",
+      "bossHaichiId": "A009",
+      "assignType": "\u4E3B\u52D9",
+      "effort": "100"
+    },
+    {
+      "recordId": "24",
+      "haichiId": "A024",
+      "shainNo": "E024",
+      "name": "\u5C71\u5D0E \u6DBC",
+      "deptCode": "D310",
+      "deptName": "\u30D7\u30ED\u30C0\u30AF\u30C8\u958B\u767A\u90E8",
+      "posName": "\u4FC2\u9577",
+      "bossHaichiId": "A023",
+      "assignType": "\u4E3B\u52D9",
+      "effort": "80"
+    },
+    {
+      "recordId": "25",
+      "haichiId": "A025",
+      "shainNo": "E025",
+      "name": "\u963F\u90E8 \u5343\u5C0B",
+      "deptCode": "D310",
+      "deptName": "\u30D7\u30ED\u30C0\u30AF\u30C8\u958B\u767A\u90E8",
+      "posName": "\u4E3B\u4EFB",
+      "bossHaichiId": "A023",
+      "assignType": "\u4E3B\u52D9",
+      "effort": "100"
+    },
+    {
+      "recordId": "26",
+      "haichiId": "A026",
+      "shainNo": "E026",
+      "name": "\u68EE\u7530 \u60A0",
+      "deptCode": "D310",
+      "deptName": "\u30D7\u30ED\u30C0\u30AF\u30C8\u958B\u767A\u90E8",
+      "posName": "\u4E00\u822C",
+      "bossHaichiId": "A023",
+      "assignType": "\u4E3B\u52D9",
+      "effort": "100"
+    },
+    {
+      "recordId": "27",
+      "haichiId": "A027",
+      "shainNo": "E027",
+      "name": "\u85E4\u7530 \u8389\u5B50",
+      "deptCode": "D310",
+      "deptName": "\u30D7\u30ED\u30C0\u30AF\u30C8\u958B\u767A\u90E8",
+      "posName": "\u4E00\u822C",
+      "bossHaichiId": "A023",
+      "assignType": "\u4E3B\u52D9",
+      "effort": "100"
+    },
+    {
+      "recordId": "28",
+      "haichiId": "A028",
+      "shainNo": "E028",
+      "name": "\u5CA1\u7530 \u6D69\u4E8C",
+      "deptCode": "D320",
+      "deptName": "\u54C1\u8CEA\u4FDD\u8A3C\u90E8",
+      "posName": "\u8AB2\u9577",
+      "bossHaichiId": "A010",
+      "assignType": "\u4E3B\u52D9",
+      "effort": "100"
+    },
+    {
+      "recordId": "29",
+      "haichiId": "A029",
+      "shainNo": "E029",
+      "name": "\u5F8C\u85E4 \u9EBB\u8863",
+      "deptCode": "D320",
+      "deptName": "\u54C1\u8CEA\u4FDD\u8A3C\u90E8",
+      "posName": "\u4E3B\u4EFB",
+      "bossHaichiId": "A028",
+      "assignType": "\u4E3B\u52D9",
+      "effort": "100"
+    },
+    {
+      "recordId": "30",
+      "haichiId": "A030",
+      "shainNo": "E030",
+      "name": "\u6751\u4E0A \u96BC",
+      "deptCode": "D320",
+      "deptName": "\u54C1\u8CEA\u4FDD\u8A3C\u90E8",
+      "posName": "\u4E00\u822C",
+      "bossHaichiId": "A028",
+      "assignType": "\u4E3B\u52D9",
+      "effort": "100"
+    },
+    {
+      "recordId": "31",
+      "haichiId": "A031",
+      "shainNo": "E009",
+      "name": "\u5C0F\u6797 \u8AA0",
+      "deptCode": "D320",
+      "deptName": "\u54C1\u8CEA\u4FDD\u8A3C\u90E8",
+      "posName": "\u8AB2\u9577",
+      "bossHaichiId": "A010",
+      "assignType": "\u517C\u52D9",
+      "effort": "20"
+    },
+    {
+      "recordId": "32",
+      "haichiId": "A032",
+      "shainNo": "E017",
+      "name": "\u6728\u6751 \u76F4\u4EBA",
+      "deptCode": "D220",
+      "deptName": "\u7B2C\u4E8C\u55B6\u696D\u90E8",
+      "posName": "\u4FC2\u9577",
+      "bossHaichiId": "A020",
+      "assignType": "\u517C\u52D9",
+      "effort": "30"
+    },
+    {
+      "recordId": "33",
+      "haichiId": "A033",
+      "shainNo": "E011",
+      "name": "\u5409\u7530 \u76F4\u6A39",
+      "deptCode": "D120",
+      "deptName": "\u7D4C\u7406\u8CA1\u52D9\u90E8",
+      "posName": "\u8AB2\u9577",
+      "bossHaichiId": "A006",
+      "assignType": "\u517C\u52D9",
+      "effort": "30"
+    },
+    {
+      "recordId": "34",
+      "haichiId": "A034",
+      "shainNo": "E024",
+      "name": "\u5C71\u5D0E \u6DBC",
+      "deptCode": "D320",
+      "deptName": "\u54C1\u8CEA\u4FDD\u8A3C\u90E8",
+      "posName": "\u4FC2\u9577",
+      "bossHaichiId": "A028",
+      "assignType": "\u517C\u52D9",
+      "effort": "20"
+    }
+  ];
+
+  // src/tree/hierarchy.ts
+  function deriveParentCode(code, codeSet, sep) {
+    if (!code || !sep) return "";
+    let c = code;
+    while (true) {
+      const i = c.lastIndexOf(sep);
+      if (i < 0) return "";
+      c = c.slice(0, i);
+      if (codeSet.has(c)) return c;
+    }
+  }
+  function compareCode(a, b) {
+    return String(a).localeCompare(String(b), void 0, { numeric: true, sensitivity: "base" });
+  }
+  function planRecode(codes, nodeCode, newParentCode, sep) {
+    const codeSet = new Set(codes.map((c) => c.code));
+    const prefix = newParentCode ? newParentCode + sep : "";
+    let maxIdx = 0;
+    for (const c of codes) {
+      if (deriveParentCode(c.code, codeSet, sep) !== newParentCode) continue;
+      const last = c.code.slice(prefix.length);
+      const num = parseInt(last, 10);
+      if (!Number.isNaN(num)) maxIdx = Math.max(maxIdx, num);
+    }
+    const newBase = prefix + String(maxIdx + 1);
+    const affected = codes.filter((c) => c.code === nodeCode || c.code.startsWith(nodeCode + sep));
+    return affected.map((c) => ({
+      recordId: c.recordId,
+      oldCode: c.code,
+      newCode: newBase + c.code.slice(nodeCode.length)
+    }));
+  }
+
+  // src/tree/model.ts
+  var TreeModel = class {
+    // コードが空のレコード数
+    constructor(nodes, sep = "-") {
+      this.byId = /* @__PURE__ */ new Map();
+      this._dupIds = false;
+      // コードが重複（一意でない）
+      this._emptyIds = 0;
+      this.sep = sep || "-";
+      const codeSet = /* @__PURE__ */ new Set();
+      for (const n of nodes) {
+        if (n.nodeId) codeSet.add(n.nodeId);
+      }
+      for (const n of nodes) {
+        if (!n.nodeId) {
+          this._emptyIds += 1;
+          continue;
+        }
+        if (this.byId.has(n.nodeId)) this._dupIds = true;
+        this.byId.set(n.nodeId, {
+          ...n,
+          sortKey: n.nodeId,
+          parentId: deriveParentCode(n.nodeId, codeSet, this.sep)
+          // 親はコードから導出
+        });
+      }
+    }
+    list() {
+      return [...this.byId.values()];
+    }
+    get(nodeId) {
+      return this.byId.get(nodeId);
+    }
+    childrenOf(nodeId) {
+      return this.list().filter((n) => n.parentId === nodeId && n.nodeId !== nodeId).sort((a, b) => compareCode(a.sortKey, b.sortKey));
+    }
+    roots() {
+      return this.list().filter((n) => !n.parentId || n.parentId === n.nodeId || !this.byId.has(n.parentId)).sort((a, b) => compareCode(a.sortKey, b.sortKey));
+    }
+    descendants(nodeId) {
+      const out = [];
+      const seen = /* @__PURE__ */ new Set();
+      const walk = (id) => {
+        if (seen.has(id)) return;
+        seen.add(id);
+        for (const c of this.childrenOf(id)) {
+          out.push(c.nodeId);
+          walk(c.nodeId);
+        }
+      };
+      walk(nodeId);
+      return out;
+    }
+    hasChildren(nodeId) {
+      return this.list().some((n) => n.parentId === nodeId && n.nodeId !== nodeId);
+    }
+    wouldCycle(nodeId, targetId) {
+      if (nodeId === targetId) return true;
+      return this.descendants(nodeId).includes(targetId);
+    }
+    /** データ健全性（コード重複・コード空・最上位なし＝循環の疑い） */
+    diagnostics() {
+      return { duplicateIds: this._dupIds, emptyIds: this._emptyIds, noRoot: this.byId.size > 0 && this.roots().length === 0 };
+    }
+    /** 表示上の最上位：通常のルート＋どこからも辿れない孤立ノード（循環）も含める */
+    displayRoots() {
+      const roots = this.roots();
+      const reachable = /* @__PURE__ */ new Set();
+      for (const r of roots) {
+        reachable.add(r.nodeId);
+        for (const d of this.descendants(r.nodeId)) reachable.add(d);
+      }
+      const extra = this.list().filter((n) => !reachable.has(n.nodeId)).sort((a, b) => compareCode(a.sortKey, b.sortKey));
+      return [...roots, ...extra];
+    }
+    /** node を newParent の下へ付け替え＝本人＋配下のコードを書き換える変更セット */
+    planReparent(nodeId, newParentId) {
+      if (!this.byId.get(nodeId) || !this.byId.get(newParentId)) throw new Error("node or parent not found");
+      if (this.wouldCycle(nodeId, newParentId)) throw new Error("cycle");
+      const codes = this.list().map((n) => ({ recordId: n.recordId, code: n.nodeId }));
+      const recodes = planRecode(codes, nodeId, newParentId, this.sep);
+      return recodes.map((r) => ({ recordId: r.recordId, before: { code: r.oldCode }, after: { code: r.newCode } }));
+    }
+    /** 変更セットをメモリ上のモデルへ適用（コードを書き換え、親子を再導出） */
+    apply(changes) {
+      if (changes.length === 0) return;
+      const byRec = new Map(changes.map((c) => [c.recordId, c.after.code]));
+      const nodes = this.list().map((n) => {
+        const nc = byRec.get(n.recordId);
+        return nc ? { ...n, nodeId: nc, sortKey: nc } : n;
+      });
+      const codeSet = new Set(nodes.map((n) => n.nodeId).filter(Boolean));
+      this.byId = /* @__PURE__ */ new Map();
+      for (const n of nodes) {
+        if (!n.nodeId) continue;
+        this.byId.set(n.nodeId, { ...n, parentId: deriveParentCode(n.nodeId, codeSet, this.sep) });
+      }
+    }
+    static invert(changes) {
+      return changes.map((c) => ({ recordId: c.recordId, before: c.after, after: c.before }));
+    }
+  };
+
+  // src/tree/layout.ts
+  var NODE_W = 190;
+  var NODE_H = 66;
+  var X_GAP = 28;
+  var Y_GAP_V = 54;
+  var Y_GAP_H = 16;
+  function layoutTree(model, opts = {}) {
+    var _a, _b, _c;
+    const direction = (_a = opts.direction) != null ? _a : "vertical";
+    const nodeH = (_b = opts.nodeH) != null ? _b : NODE_H;
+    const collapsed = (_c = opts.collapsed) != null ? _c : /* @__PURE__ */ new Set();
+    const stepCross = direction === "vertical" ? NODE_W + X_GAP : nodeH + Y_GAP_H;
+    const stepDepth = direction === "vertical" ? nodeH + Y_GAP_V : NODE_W + X_GAP;
+    const crossCenter = /* @__PURE__ */ new Map();
+    let leafCursor = 0;
+    let maxDepth = 0;
+    const visiting = /* @__PURE__ */ new Set();
+    const place = (nodeId, depth) => {
+      maxDepth = Math.max(maxDepth, depth);
+      if (crossCenter.has(nodeId) || visiting.has(nodeId)) {
+        const c0 = leafCursor * stepCross;
+        leafCursor += 1;
+        return c0;
+      }
+      visiting.add(nodeId);
+      const children = collapsed.has(nodeId) ? [] : model.childrenOf(nodeId).filter((ch) => !crossCenter.has(ch.nodeId));
+      let c;
+      if (children.length === 0) {
+        c = leafCursor * stepCross;
+        leafCursor += 1;
+      } else {
+        const xs = children.map((ch) => place(ch.nodeId, depth + 1));
+        c = direction === "horizontal" ? xs[0] : (xs[0] + xs[xs.length - 1]) / 2;
+      }
+      crossCenter.set(nodeId, c);
+      visiting.delete(nodeId);
+      return c;
+    };
+    for (const root of model.displayRoots()) {
+      if (crossCenter.has(root.nodeId)) continue;
+      place(root.nodeId, 0);
+      leafCursor += 1;
+    }
+    const depthOf = (id) => {
+      let d = 0;
+      let cur = model.get(id);
+      const seen = /* @__PURE__ */ new Set();
+      while (cur && cur.parentId && cur.parentId !== cur.nodeId && model.get(cur.parentId) && !seen.has(cur.nodeId)) {
+        seen.add(cur.nodeId);
+        d += 1;
+        cur = model.get(cur.parentId);
+      }
+      return d;
+    };
+    const pos = /* @__PURE__ */ new Map();
+    for (const [id, c] of crossCenter) {
+      const depthPos = depthOf(id) * stepDepth;
+      if (direction === "vertical") {
+        pos.set(id, { left: c - NODE_W / 2, top: depthPos });
+      } else {
+        pos.set(id, { left: depthPos, top: c - nodeH / 2 });
+      }
+    }
+    const spanCross = Math.max(leafCursor, 1) * stepCross;
+    const spanDepth = (maxDepth + 1) * stepDepth;
+    const width = direction === "vertical" ? spanCross : spanDepth;
+    const height = direction === "vertical" ? spanDepth : spanCross;
+    return { pos, width, height, nodeH, direction };
+  }
+
+  // src/tree/styles.ts
+  var TREE_CSS = `
+.kzt-root { font-family: "Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif; color:#2d2d2d; }
+.kzt-toolbar { display:flex; align-items:center; gap:8px; padding:8px 12px; background:#fafbfc;
+  border:1px solid #e3e8ea; border-bottom:none; border-radius:8px 8px 0 0; }
+.kzt-brand { font-weight:700; font-size:14px; color:#34495e; }
+.kzt-spacer { flex:1; }
+.kzt-btn { height:32px; padding:0 14px; font-size:13px; background:#fff; border:1px solid #c4c4c4;
+  border-radius:6px; cursor:pointer; color:#333; }
+.kzt-btn:hover:not(:disabled) { background:#f0f4f7; border-color:#3498db; }
+.kzt-btn:disabled { opacity:.45; cursor:not-allowed; }
+.kzt-hint { font-size:12px; color:#8a98a3; margin-right:4px; }
+.kzt-canvas-wrap { position:relative; border:1px solid #e3e8ea; border-radius:0 0 8px 8px;
+  overflow:hidden; background:#fff; }
+.kzt-zoombar { position:absolute; right:12px; top:50%; transform:translateY(-50%); z-index:15;
+  display:flex; flex-direction:column; align-items:center; gap:6px; background:rgba(255,255,255,.92);
+  border:1px solid #e3e8ea; border-radius:10px; padding:8px 6px; box-shadow:0 2px 8px rgba(0,0,0,.08); }
+.kzt-zbtn { width:28px; height:28px; border:1px solid #c4c4c4; border-radius:6px; background:#fff;
+  cursor:pointer; font-size:15px; line-height:1; color:#333; }
+.kzt-zbtn:hover { background:#f0f4f7; border-color:#3498db; }
+.kzt-zslider { writing-mode:vertical-lr; direction:rtl; width:24px; height:120px; cursor:pointer;
+  accent-color:#3498db; }
+.kzt-zlabel { font-size:11px; color:#6b7a86; min-width:34px; text-align:center; }
+.kzt-svg { display:block; width:100%; background:#fcfcfd; cursor:grab; touch-action:none; }
+.kzt-svg.kzt-panning { cursor:grabbing; }
+.kzt-grid-line { stroke:#eef1f3; stroke-width:1; }
+.kzt-edge { stroke:#b7c2cb; stroke-width:1.6; fill:none; }
+.kzt-node { cursor:grab; }
+.kzt-node .kzt-box { fill:#ffffff; stroke:#cfd8de; stroke-width:1.5; rx:8; }
+.kzt-node.kzt-kenmu .kzt-box { stroke-dasharray:5 3; fill:#fffdf6; }
+.kzt-node.kzt-dragging { opacity:.5; }
+.kzt-node.kzt-droptarget .kzt-box { stroke:#2ecc71; stroke-width:2.5; fill:#f1fbf5; }
+.kzt-node.kzt-invalid .kzt-box { stroke:#e74c3c; stroke-width:2.5; fill:#fdf1f0; }
+.kzt-accent { width:6px; }
+.kzt-name { font-size:13px; font-weight:700; fill:#2d3b45; }
+.kzt-sub { font-size:11px; fill:#6b7a86; }
+.kzt-badge { font-size:10px; font-weight:700; fill:#c9872e; }
+.kzt-status { padding:6px 12px; font-size:12px; color:#6b7a86; background:#fafbfc; border-top:1px solid #eef1f3; }
+.kzt-status.kzt-status-warn { color:#8a5a00; background:#fff7e6; }
+.kzt-toggle { cursor:pointer; }
+.kzt-toggle rect { fill:#fff; stroke:#b7c2cb; stroke-width:1.4; }
+.kzt-toggle:hover rect { stroke:#3498db; fill:#f0f8ff; }
+.kzt-toggle-sign { font-size:14px; font-weight:700; fill:#5a6b76; pointer-events:none; }
+.kzt-root:fullscreen { background:#fff; padding:12px; height:100%; overflow:auto; }
+.kzt-root:-webkit-full-screen { background:#fff; padding:12px; height:100%; overflow:auto; }
+.kzt-overlay { position:absolute; inset:0; background:rgba(20,28,34,.38); display:flex;
+  align-items:center; justify-content:center; z-index:20; }
+.kzt-modal { background:#fff; border-radius:10px; width:min(460px,92%); padding:22px 24px;
+  box-shadow:0 12px 40px rgba(0,0,0,.25); }
+.kzt-modal h3 { margin:0 0 12px; font-size:16px; }
+.kzt-diff { background:#f7f9fa; border:1px solid #e3e8ea; border-radius:8px; padding:12px 14px;
+  font-size:13px; line-height:1.7; margin-bottom:14px; }
+.kzt-diff .kzt-arrow { color:#2980b9; font-weight:700; }
+.kzt-diff .kzt-old { color:#999; }
+.kzt-choice { margin:10px 0 16px; font-size:13px; }
+.kzt-choice label { display:flex; gap:8px; align-items:flex-start; padding:8px 10px; border:1px solid #e3e8ea;
+  border-radius:8px; margin-bottom:8px; cursor:pointer; }
+.kzt-choice label:hover { background:#f6f9fb; }
+.kzt-choice .kzt-desc { font-size:11px; color:#78868f; margin-top:2px; }
+.kzt-modal-actions { display:flex; gap:10px; justify-content:flex-end; }
+.kzt-primary { height:38px; padding:0 20px; background:#3498db; color:#fff; font-weight:600;
+  border:none; border-radius:6px; cursor:pointer; }
+.kzt-primary:hover { background:#2f88c5; }
+.kzt-ghostbtn { height:38px; padding:0 18px; background:#fff; color:#444; border:1px solid #c4c4c4;
+  border-radius:6px; cursor:pointer; }
+.kzt-ghostbtn:hover { background:#f2f2f2; }
+.kzt-toast { position:absolute; left:50%; bottom:16px; transform:translateX(-50%);
+  background:#2d3b45; color:#fff; font-size:12.5px; padding:8px 16px; border-radius:20px; z-index:30;
+  opacity:0; transition:opacity .2s; pointer-events:none; }
+.kzt-toast.kzt-show { opacity:1; }
+`;
+  var injected = false;
+  function injectTreeCss(doc = document) {
+    if (injected && doc === document) return;
+    const style = doc.createElement("style");
+    style.textContent = TREE_CSS;
+    doc.head.appendChild(style);
+    if (doc === document) injected = true;
+  }
+
+  // src/tree/view.ts
+  var SVG_NS = "http://www.w3.org/2000/svg";
+  var SVG_H = 640;
+  var PAD = 60;
+  var TreeEditor = class {
+    // 折りたたみ中のノード
+    constructor(host2, provider, direction = "vertical", sep = "-") {
+      this.provider = provider;
+      this.vb = { x: 0, y: 0, w: 1e3, h: SVG_H };
+      this.rects = [];
+      this.undoStack = [];
+      this.fitW = 1e3;
+      // ズーム100%（全体表示）基準
+      this.fitH = SVG_H;
+      // ドラッグ状態
+      this.dragId = null;
+      this.dragStart = { x: 0, y: 0 };
+      this.dragGroup = null;
+      this.hoverTarget = null;
+      this.nodeH = NODE_H;
+      // 縦並び / 横並び（モードで固定）
+      this.collapsed = /* @__PURE__ */ new Set();
+      this.toastTimer = 0;
+      injectTreeCss(host2.ownerDocument || document);
+      this.root = host2;
+      this.direction = direction;
+      this.sep = sep || "-";
+    }
+    // 表示（設定の主/副。主が無ければ label＝ノードIDにフォールバック）
+    displayOf(a) {
+      var _a;
+      const main = a.main && a.main !== "" ? a.main : a.label;
+      const subs = (_a = a.subs) != null ? _a : [];
+      return { main, subs: subs.slice(0, 5) };
+    }
+    computeNodeH() {
+      const HEAD = 28;
+      const LINE = 16;
+      const PADB = 10;
+      let maxSubs = 0;
+      for (const a of this.model.list()) maxSubs = Math.max(maxSubs, this.displayOf(a).subs.length);
+      return HEAD + (maxSubs > 0 ? maxSubs * LINE + PADB : PADB + 10);
+    }
+    async mount() {
+      const data = await this.provider.load();
+      this.model = new TreeModel(data, this.sep);
+      this.buildDom();
+      this.resizeToWindow();
+      this.render();
+      this.fit();
+      window.addEventListener("resize", () => this.resizeToWindow());
+      document.addEventListener("fullscreenchange", () => this.resizeToWindow());
+    }
+    /** SVGの高さをブラウザのウィンドウ下端まで追従させる（全画面時はウィンドウ＝画面いっぱい） */
+    resizeToWindow() {
+      const rect = this.svg.getBoundingClientRect();
+      const bottomGap = 48;
+      const h = Math.max(320, Math.round(window.innerHeight - rect.top - bottomGap));
+      this.svg.setAttribute("height", String(h));
+    }
+    toggleFullscreen() {
+      const doc = document;
+      const el = this.root;
+      if (!doc.fullscreenElement) {
+        if (el.requestFullscreen) el.requestFullscreen();
+      } else if (doc.exitFullscreen) {
+        doc.exitFullscreen();
+      }
+    }
+    // ---- DOM 構築 ----
+    buildDom() {
+      this.root.classList.add("kzt-root");
+      this.root.innerHTML = "";
+      const bar = document.createElement("div");
+      bar.className = "kzt-toolbar";
+      const brand = document.createElement("span");
+      brand.className = "kzt-brand";
+      brand.textContent = "\u30C4\u30EA\u30FC\u7DE8\u96C6";
+      const hint = document.createElement("span");
+      hint.className = "kzt-hint";
+      hint.textContent = (this.direction === "vertical" ? "\u7E26\u4E26\u3073" : "\u6A2A\u4E26\u3073") + "\u30FB\u30C9\u30E9\u30C3\u30B0\u3067\u914D\u7F6E\u63DB\u3048";
+      const spacer = document.createElement("span");
+      spacer.className = "kzt-spacer";
+      const expandBtn = this.mkBtn("\u3059\u3079\u3066\u5C55\u958B", () => {
+        this.collapsed.clear();
+        this.render();
+        this.fit();
+      });
+      const collapseBtn = this.mkBtn("\u7B2C2\u968E\u5C64\u3067\u7573\u3080", () => this.collapseToDepth1());
+      this.undoBtn = this.mkBtn("\u5143\u306B\u623B\u3059", () => void this.undo());
+      this.undoBtn.disabled = true;
+      const fitBtn = this.mkBtn("\u5168\u4F53\u8868\u793A", () => this.fit());
+      const fsBtn = this.mkBtn("\u5168\u753B\u9762", () => this.toggleFullscreen());
+      bar.append(brand, hint, spacer, expandBtn, collapseBtn, this.undoBtn, fitBtn, fsBtn);
+      this.root.appendChild(bar);
+      const wrap = document.createElement("div");
+      wrap.className = "kzt-canvas-wrap";
+      this.svg = document.createElementNS(SVG_NS, "svg");
+      this.svg.classList.add("kzt-svg");
+      this.svg.setAttribute("width", "100%");
+      this.svg.setAttribute("height", String(SVG_H));
+      this.buildGrid();
+      const bg = document.createElementNS(SVG_NS, "rect");
+      bg.setAttribute("x", "-100000");
+      bg.setAttribute("y", "-100000");
+      bg.setAttribute("width", "200000");
+      bg.setAttribute("height", "200000");
+      bg.setAttribute("fill", "url(#kzt-grid)");
+      this.svg.appendChild(bg);
+      this.scene = document.createElementNS(SVG_NS, "g");
+      this.edgeLayer = document.createElementNS(SVG_NS, "g");
+      this.nodeLayer = document.createElementNS(SVG_NS, "g");
+      this.scene.append(this.edgeLayer, this.nodeLayer);
+      this.svg.appendChild(this.scene);
+      wrap.appendChild(this.svg);
+      wrap.appendChild(this.buildZoomBar());
+      this.toastEl = document.createElement("div");
+      this.toastEl.className = "kzt-toast";
+      wrap.appendChild(this.toastEl);
+      this.root.appendChild(wrap);
+      this.statusEl = document.createElement("div");
+      this.statusEl.className = "kzt-status";
+      this.root.appendChild(this.statusEl);
+      this.bindPanZoom(bg);
+    }
+    mkBtn(label, onClick) {
+      const b = document.createElement("button");
+      b.className = "kzt-btn";
+      b.textContent = label;
+      b.addEventListener("click", onClick);
+      return b;
+    }
+    buildGrid() {
+      const defs = document.createElementNS(SVG_NS, "defs");
+      const p = document.createElementNS(SVG_NS, "pattern");
+      p.setAttribute("id", "kzt-grid");
+      p.setAttribute("width", "26");
+      p.setAttribute("height", "26");
+      p.setAttribute("patternUnits", "userSpaceOnUse");
+      const path = document.createElementNS(SVG_NS, "path");
+      path.setAttribute("d", "M26 0 L0 0 0 26");
+      path.setAttribute("fill", "none");
+      path.setAttribute("class", "kzt-grid-line");
+      p.appendChild(path);
+      defs.appendChild(p);
+      this.svg.appendChild(defs);
+    }
+    // ---- 描画 ----
+    render() {
+      this.nodeH = this.computeNodeH();
+      this.layout = layoutTree(this.model, {
+        direction: this.direction,
+        nodeH: this.nodeH,
+        collapsed: this.collapsed
+      });
+      this.edgeLayer.innerHTML = "";
+      this.nodeLayer.innerHTML = "";
+      this.rects = [];
+      const vert = this.direction === "vertical";
+      for (const a of this.model.list()) {
+        const parent = a.parentId ? this.model.get(a.parentId) : void 0;
+        if (!parent) continue;
+        const pp = this.layout.pos.get(parent.nodeId);
+        const cp = this.layout.pos.get(a.nodeId);
+        if (!pp || !cp) continue;
+        const path = document.createElementNS(SVG_NS, "path");
+        path.setAttribute("class", "kzt-edge");
+        if (vert) {
+          const x1 = pp.left + NODE_W / 2, y1 = pp.top + this.nodeH;
+          const x2 = cp.left + NODE_W / 2, y2 = cp.top;
+          const midY = (y1 + y2) / 2;
+          path.setAttribute("d", `M ${x1} ${y1} V ${midY} H ${x2} V ${y2}`);
+        } else {
+          const x1 = pp.left + NODE_W, y1 = pp.top + this.nodeH / 2;
+          const x2 = cp.left, y2 = cp.top + this.nodeH / 2;
+          const midX = (x1 + x2) / 2;
+          path.setAttribute("d", `M ${x1} ${y1} H ${midX} V ${y2} H ${x2}`);
+        }
+        this.edgeLayer.appendChild(path);
+      }
+      for (const a of this.model.list()) {
+        const pos = this.layout.pos.get(a.nodeId);
+        if (!pos) continue;
+        this.rects.push({ nodeId: a.nodeId, left: pos.left, top: pos.top });
+        this.nodeLayer.appendChild(this.renderNode(a, pos.left, pos.top));
+      }
+      for (const a of this.model.list()) {
+        if (!this.model.hasChildren(a.nodeId)) continue;
+        const pos = this.layout.pos.get(a.nodeId);
+        if (!pos) continue;
+        this.nodeLayer.appendChild(this.renderToggle(a.nodeId, pos, vert));
+      }
+      this.updateStatus();
+    }
+    // 直下（第1階層＝ルートの子）より下をすべて折りたたむ
+    collapseToDepth1() {
+      this.collapsed.clear();
+      for (const root of this.model.roots()) {
+        for (const child of this.model.childrenOf(root.nodeId)) {
+          if (this.model.hasChildren(child.nodeId)) this.collapsed.add(child.nodeId);
+        }
+      }
+      this.render();
+      this.fit();
+    }
+    renderToggle(haichiId, pos, vert) {
+      const isCollapsed = this.collapsed.has(haichiId);
+      const cx = vert ? pos.left + NODE_W / 2 : pos.left + NODE_W + 11;
+      const cy = vert ? pos.top + this.nodeH + 11 : pos.top + this.nodeH / 2;
+      const g = document.createElementNS(SVG_NS, "g");
+      g.setAttribute("class", "kzt-toggle");
+      const r = document.createElementNS(SVG_NS, "rect");
+      r.setAttribute("x", String(cx - 9));
+      r.setAttribute("y", String(cy - 9));
+      r.setAttribute("width", "18");
+      r.setAttribute("height", "18");
+      r.setAttribute("rx", "4");
+      const t = document.createElementNS(SVG_NS, "text");
+      t.setAttribute("x", String(cx));
+      t.setAttribute("y", String(cy + 4));
+      t.setAttribute("text-anchor", "middle");
+      t.setAttribute("class", "kzt-toggle-sign");
+      t.textContent = isCollapsed ? "+" : "\u2212";
+      g.append(r, t);
+      g.addEventListener("pointerdown", (e) => {
+        e.stopPropagation();
+        if (isCollapsed) this.collapsed.delete(haichiId);
+        else this.collapsed.add(haichiId);
+        this.render();
+      });
+      return g;
+    }
+    renderNode(a, left, top) {
+      const g = document.createElementNS(SVG_NS, "g");
+      g.setAttribute("class", "kzt-node");
+      g.setAttribute("transform", `translate(${left} ${top})`);
+      g.dataset.node = a.nodeId;
+      const box = document.createElementNS(SVG_NS, "rect");
+      box.setAttribute("class", "kzt-box");
+      box.setAttribute("width", String(NODE_W));
+      box.setAttribute("height", String(this.nodeH));
+      box.setAttribute("rx", "8");
+      g.appendChild(box);
+      const accent = document.createElementNS(SVG_NS, "rect");
+      accent.setAttribute("class", "kzt-accent");
+      accent.setAttribute("x", "0");
+      accent.setAttribute("y", "0");
+      accent.setAttribute("width", "6");
+      accent.setAttribute("height", String(this.nodeH));
+      accent.setAttribute("fill", groupColor(a.parentId || a.nodeId));
+      accent.setAttribute("rx", "3");
+      g.appendChild(accent);
+      const disp = this.displayOf(a);
+      const name = document.createElementNS(SVG_NS, "text");
+      name.setAttribute("class", "kzt-name");
+      name.setAttribute("x", "16");
+      name.setAttribute("y", "19");
+      name.textContent = disp.main;
+      g.appendChild(name);
+      disp.subs.forEach((s, i) => {
+        const sub = document.createElementNS(SVG_NS, "text");
+        sub.setAttribute("class", "kzt-sub");
+        sub.setAttribute("x", "16");
+        sub.setAttribute("y", String(28 + 12 + i * 16));
+        sub.textContent = `${s.label}: ${s.value}`;
+        g.appendChild(sub);
+      });
+      g.addEventListener("pointerdown", (e) => this.onNodeDown(e, a.nodeId));
+      return g;
+    }
+    updateStatus() {
+      const n = this.model.list().length;
+      const roots = this.model.roots().length;
+      const mode = this.provider.writable ? "\u66F8\u8FBC\u53EF" : "\u8AAD\u53D6\u306E\u307F";
+      const dg = this.model.diagnostics();
+      const warns = [];
+      if (dg.duplicateIds) warns.push("\u2460\u306E\u5024\u306B\u91CD\u8907\u304C\u3042\u308A\u307E\u3059\uFF08\u540C\u3058\u5024\u306F1\u4EF6\u306B\u7D71\u5408\u3055\u308C\u307E\u3059\uFF09");
+      if (dg.emptyIds > 0) warns.push(`\u2460\u304C\u7A7A\u306E\u30EC\u30B3\u30FC\u30C9\u304C${dg.emptyIds}\u4EF6\u3042\u308A\u8868\u793A\u3067\u304D\u307E\u305B\u3093`);
+      if (dg.noRoot) warns.push("\u6700\u4E0A\u4F4D\u304C\u898B\u3064\u304B\u308A\u307E\u305B\u3093\uFF08\u2461\u306E\u6307\u5B9A\u304C\u5FAA\u74B0\u3057\u3066\u3044\u308B\u53EF\u80FD\u6027\uFF09\u3002\u66AB\u5B9A\u3067\u6700\u4E0A\u4F4D\u306B\u4E26\u3079\u3066\u3044\u307E\u3059");
+      const warnTxt = warns.length ? `\u3000\u26A0 ${warns.join(" / ")}` : "";
+      this.statusEl.textContent = `\u30CE\u30FC\u30C9 ${n} \u4EF6\uFF08\u30EB\u30FC\u30C8 ${roots}\uFF09\uFF0F\u4FDD\u5B58\u5148: ${this.provider.label}\uFF08${mode}\uFF09${warnTxt}`;
+      this.statusEl.classList.toggle("kzt-status-warn", warns.length > 0);
+    }
+    // ---- ドラッグ再配置 ----
+    onNodeDown(e, nodeId) {
+      var _a;
+      e.stopPropagation();
+      e.preventDefault();
+      this.dragId = nodeId;
+      this.dragStart = this.toScene(e.clientX, e.clientY);
+      this.dragGroup = this.nodeLayer.querySelector(`[data-node="${nodeId}"]`);
+      (_a = this.dragGroup) == null ? void 0 : _a.classList.add("kzt-dragging");
+      const move = (ev) => this.onDragMove(ev);
+      const up = () => {
+        window.removeEventListener("pointermove", move);
+        window.removeEventListener("pointerup", up);
+        this.onDragUp();
+      };
+      window.addEventListener("pointermove", move);
+      window.addEventListener("pointerup", up);
+    }
+    onDragMove(e) {
+      if (!this.dragId || !this.dragGroup) return;
+      const p = this.toScene(e.clientX, e.clientY);
+      const base = this.layout.pos.get(this.dragId);
+      const nx = base.left + (p.x - this.dragStart.x);
+      const ny = base.top + (p.y - this.dragStart.y);
+      this.dragGroup.setAttribute("transform", `translate(${nx} ${ny})`);
+      const target = this.hitTest(p.x, p.y, this.dragId);
+      if (target !== this.hoverTarget) {
+        this.clearHover();
+        this.hoverTarget = target;
+        if (target) {
+          const g = this.nodeLayer.querySelector(`[data-node="${target}"]`);
+          const invalid = this.model.wouldCycle(this.dragId, target) || target === this.model.get(this.dragId).parentId;
+          g == null ? void 0 : g.classList.add(invalid ? "kzt-invalid" : "kzt-droptarget");
+        }
+      }
+    }
+    onDragUp() {
+      var _a;
+      const nodeId = this.dragId;
+      const target = this.hoverTarget;
+      this.clearHover();
+      (_a = this.dragGroup) == null ? void 0 : _a.classList.remove("kzt-dragging");
+      this.dragId = null;
+      this.dragGroup = null;
+      if (!nodeId) return;
+      const node = this.model.get(nodeId);
+      if (!target || target === nodeId || this.model.wouldCycle(nodeId, target) || target === node.parentId) {
+        this.render();
+        if (target && this.model.wouldCycle(nodeId, target)) this.toast("\u81EA\u5206\u306E\u914D\u4E0B\u3078\u306F\u79FB\u52D5\u3067\u304D\u307E\u305B\u3093");
+        return;
+      }
+      this.openConfirm(nodeId, target);
+    }
+    hitTest(x, y, exclude) {
+      const banned = /* @__PURE__ */ new Set([exclude, ...this.model.descendants(exclude)]);
+      for (let i = this.rects.length - 1; i >= 0; i--) {
+        const r = this.rects[i];
+        if (banned.has(r.nodeId)) continue;
+        if (x >= r.left && x <= r.left + NODE_W && y >= r.top && y <= r.top + this.nodeH) {
+          return r.nodeId;
+        }
+      }
+      return null;
+    }
+    clearHover() {
+      this.nodeLayer.querySelectorAll(".kzt-droptarget,.kzt-invalid").forEach((el) => {
+        el.classList.remove("kzt-droptarget", "kzt-invalid");
+      });
+      this.hoverTarget = null;
+    }
+    // ---- 確認モーダル ----
+    openConfirm(nodeId, newParentId) {
+      const node = this.model.get(nodeId);
+      const parent = this.model.get(newParentId);
+      const descCount = this.model.descendants(nodeId).length;
+      const overlay = document.createElement("div");
+      overlay.className = "kzt-overlay";
+      const modal = document.createElement("div");
+      modal.className = "kzt-modal";
+      const h = document.createElement("h3");
+      h.textContent = "\u89AA\u306E\u4ED8\u3051\u66FF\u3048";
+      modal.appendChild(h);
+      const nodeLabel = node.main && node.main !== "" ? node.main : node.label;
+      const diff = document.createElement("div");
+      diff.className = "kzt-diff";
+      diff.innerHTML = `<b>${esc(nodeLabel)}</b> \u306E\u89AA\u3092\u5909\u66F4\u3057\u307E\u3059<br>\u89AA: <span class="kzt-old">${esc(parentLabel(this.model, node.parentId))}</span> <span class="kzt-arrow">\u2192</span> ${esc(parent.main && parent.main !== "" ? parent.main : parent.label)}` + (descCount > 0 ? `<br><span class="kzt-desc">\u914D\u4E0B ${descCount} \u4EF6\u3082\u305D\u306E\u307E\u307E\u4E00\u7DD2\u306B\u79FB\u52D5\u3057\u307E\u3059</span>` : "");
+      modal.appendChild(diff);
+      const actions = document.createElement("div");
+      actions.className = "kzt-modal-actions";
+      const cancel = document.createElement("button");
+      cancel.className = "kzt-ghostbtn";
+      cancel.textContent = "\u30AD\u30E3\u30F3\u30BB\u30EB";
+      cancel.addEventListener("click", () => {
+        overlay.remove();
+        this.render();
+      });
+      const ok = document.createElement("button");
+      ok.className = "kzt-primary";
+      ok.textContent = "\u5B9F\u884C";
+      ok.addEventListener("click", () => {
+        overlay.remove();
+        void this.commitReparent(nodeId, newParentId);
+      });
+      actions.append(cancel, ok);
+      modal.appendChild(actions);
+      overlay.appendChild(modal);
+      this.root.querySelector(".kzt-canvas-wrap").appendChild(overlay);
+    }
+    async commitReparent(nodeId, newParentId) {
+      let changes;
+      try {
+        changes = this.model.planReparent(nodeId, newParentId);
+      } catch {
+        this.render();
+        this.toast("\u3053\u306E\u79FB\u52D5\u306F\u3067\u304D\u307E\u305B\u3093");
+        return;
+      }
+      try {
+        await this.provider.apply(changes);
+      } catch (err) {
+        console.error("[kintone-zu] \u66F8\u304D\u623B\u3057\u306B\u5931\u6557", err);
+        this.render();
+        this.toast("\u4FDD\u5B58\u306B\u5931\u6557\u3057\u307E\u3057\u305F\uFF08\u6A29\u9650\u3084\u30CD\u30C3\u30C8\u30EF\u30FC\u30AF\u3092\u78BA\u8A8D\uFF09");
+        return;
+      }
+      this.model.apply(changes);
+      this.undoStack.push(TreeModel.invert(changes));
+      this.undoBtn.disabled = false;
+      this.render();
+      this.toast(`\u66F4\u65B0\u3057\u307E\u3057\u305F\uFF08${changes.length}\u4EF6\uFF09`);
+    }
+    async undo() {
+      const inv = this.undoStack.pop();
+      if (!inv) return;
+      try {
+        await this.provider.apply(inv);
+      } catch (err) {
+        console.error("[kintone-zu] \u30A2\u30F3\u30C9\u30A5\u306E\u66F8\u304D\u623B\u3057\u306B\u5931\u6557", err);
+        this.undoStack.push(inv);
+        this.toast("\u5143\u306B\u623B\u305B\u307E\u305B\u3093\u3067\u3057\u305F");
+        return;
+      }
+      this.model.apply(inv);
+      this.undoBtn.disabled = this.undoStack.length === 0;
+      this.render();
+      this.toast("\u5143\u306B\u623B\u3057\u307E\u3057\u305F");
+    }
+    // ---- ビュー操作（パン/ズーム/フィット） ----
+    applyVB() {
+      this.svg.setAttribute("viewBox", `${this.vb.x} ${this.vb.y} ${this.vb.w} ${this.vb.h}`);
+      this.updateZoomUi();
+    }
+    fit() {
+      let minX = Infinity;
+      let minY = Infinity;
+      let maxX = -Infinity;
+      let maxY = -Infinity;
+      for (const r of this.rects) {
+        minX = Math.min(minX, r.left);
+        minY = Math.min(minY, r.top);
+        maxX = Math.max(maxX, r.left + NODE_W);
+        maxY = Math.max(maxY, r.top + this.nodeH);
+      }
+      if (!isFinite(minX)) {
+        this.vb = { x: 0, y: 0, w: 1e3, h: SVG_H };
+      } else {
+        const w = maxX - minX + PAD * 2;
+        const h = maxY - minY + PAD * 2;
+        this.vb = { x: minX - PAD, y: minY - PAD, w, h };
+      }
+      this.fitW = this.vb.w;
+      this.fitH = this.vb.h;
+      this.applyVB();
+    }
+    // ---- 右側ズームバー ----
+    buildZoomBar() {
+      const bar = document.createElement("div");
+      bar.className = "kzt-zoombar";
+      const plus = document.createElement("button");
+      plus.className = "kzt-zbtn";
+      plus.textContent = "\uFF0B";
+      plus.addEventListener("click", () => this.zoomStep(1));
+      const slider = document.createElement("input");
+      slider.type = "range";
+      slider.min = "20";
+      slider.max = "400";
+      slider.value = "100";
+      slider.className = "kzt-zslider";
+      slider.addEventListener("input", () => this.applyZoomPct(Number(slider.value)));
+      const minus = document.createElement("button");
+      minus.className = "kzt-zbtn";
+      minus.textContent = "\u2212";
+      minus.addEventListener("click", () => this.zoomStep(-1));
+      const label = document.createElement("div");
+      label.className = "kzt-zlabel";
+      label.textContent = "100%";
+      bar.append(plus, slider, minus, label);
+      this.zoomSlider = slider;
+      this.zoomLabel = label;
+      return bar;
+    }
+    zoomPct() {
+      return this.fitW > 0 ? Math.round(this.fitW / this.vb.w * 100) : 100;
+    }
+    applyZoomPct(pct) {
+      const p = Math.min(400, Math.max(20, pct));
+      const cx = this.vb.x + this.vb.w / 2;
+      const cy = this.vb.y + this.vb.h / 2;
+      const nw = this.fitW * 100 / p;
+      const nh = this.fitH * 100 / p;
+      this.vb = { x: cx - nw / 2, y: cy - nh / 2, w: nw, h: nh };
+      this.applyVB();
+    }
+    zoomStep(dir) {
+      this.applyZoomPct(this.zoomPct() * (dir > 0 ? 1.25 : 0.8));
+    }
+    updateZoomUi() {
+      const p = this.zoomPct();
+      if (this.zoomSlider) this.zoomSlider.value = String(Math.min(400, Math.max(20, p)));
+      if (this.zoomLabel) this.zoomLabel.textContent = p + "%";
+    }
+    toScene(clientX, clientY) {
+      const r = this.svg.getBoundingClientRect();
+      const scale = Math.min(r.width / this.vb.w, r.height / this.vb.h);
+      const offX = (r.width - this.vb.w * scale) / 2;
+      const offY = (r.height - this.vb.h * scale) / 2;
+      const x = this.vb.x + (clientX - r.left - offX) / scale;
+      const y = this.vb.y + (clientY - r.top - offY) / scale;
+      return { x, y };
+    }
+    bindPanZoom(bg) {
+      this.svg.addEventListener(
+        "wheel",
+        (e) => {
+          e.preventDefault();
+          const f = e.deltaY < 0 ? 0.9 : 1 / 0.9;
+          const p = this.toScene(e.clientX, e.clientY);
+          this.vb.x = p.x - (p.x - this.vb.x) * f;
+          this.vb.y = p.y - (p.y - this.vb.y) * f;
+          this.vb.w *= f;
+          this.vb.h *= f;
+          this.applyVB();
+        },
+        { passive: false }
+      );
+      let panning = false;
+      let last = { x: 0, y: 0 };
+      bg.addEventListener("pointerdown", (e) => {
+        panning = true;
+        last = { x: e.clientX, y: e.clientY };
+        this.svg.classList.add("kzt-panning");
+      });
+      window.addEventListener("pointermove", (e) => {
+        if (!panning) return;
+        const r = this.svg.getBoundingClientRect();
+        const scale = Math.min(r.width / this.vb.w, r.height / this.vb.h);
+        this.vb.x -= (e.clientX - last.x) / scale;
+        this.vb.y -= (e.clientY - last.y) / scale;
+        last = { x: e.clientX, y: e.clientY };
+        this.applyVB();
+      });
+      window.addEventListener("pointerup", () => {
+        panning = false;
+        this.svg.classList.remove("kzt-panning");
+      });
+    }
+    toast(msg) {
+      this.toastEl.textContent = msg;
+      this.toastEl.classList.add("kzt-show");
+      window.clearTimeout(this.toastTimer);
+      this.toastTimer = window.setTimeout(() => this.toastEl.classList.remove("kzt-show"), 2200);
+    }
+  };
+  function groupColor(key) {
+    let h = 0;
+    for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) % 360;
+    return `hsl(${h} 55% 55%)`;
+  }
+  function parentLabel(model, parentId) {
+    if (!parentId) return "\uFF08\u306A\u3057\uFF09";
+    const p = model.get(parentId);
+    if (!p) return parentId;
+    return p.main && p.main !== "" ? p.main : p.label;
+  }
+  function esc(s) {
+    return s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+  }
+
+  // demo/demo.ts
+  var SEP = "-";
+  function buildCodes(recs) {
+    var _a;
+    const childrenOf = /* @__PURE__ */ new Map();
+    for (const r of recs) {
+      const k = r.bossHaichiId || "";
+      ((_a = childrenOf.get(k)) != null ? _a : childrenOf.set(k, []).get(k)).push(r);
+    }
+    const code = /* @__PURE__ */ new Map();
+    const assign = (parentHaichi, prefix) => {
+      var _a2;
+      const kids = ((_a2 = childrenOf.get(parentHaichi)) != null ? _a2 : []).sort((a, b) => a.haichiId.localeCompare(b.haichiId));
+      kids.forEach((r, i) => {
+        const c = prefix ? `${prefix}${SEP}${i + 1}` : String(i + 1);
+        code.set(r.haichiId, c);
+        assign(r.haichiId, c);
+      });
+    };
+    assign("", "");
+    return code;
+  }
+  var DemoProvider = class {
+    constructor(seed) {
+      this.writable = true;
+      this.label = "\u30C7\u30E2\uFF08\u30E1\u30E2\u30EA\u5185\u30FBkintone\u306B\u306F\u66F8\u304D\u8FBC\u307F\u307E\u305B\u3093\uFF09";
+      const code = buildCodes(seed);
+      const codeSet = /* @__PURE__ */ new Set([...code.values()]);
+      this.nodes = seed.filter((a) => code.has(a.haichiId)).map((a) => {
+        const c = code.get(a.haichiId);
+        return {
+          recordId: a.recordId,
+          nodeId: c,
+          // ノードID＝階層コード
+          parentId: deriveParentCode(c, codeSet, SEP),
+          sortKey: c,
+          label: a.name,
+          main: a.name,
+          subs: [
+            { label: "\u5F79\u8077", value: a.posName },
+            { label: "\u90E8\u9580", value: a.deptName }
+          ]
+        };
+      });
+    }
+    async load() {
+      return this.nodes.map((n) => {
+        var _a;
+        return { ...n, subs: (_a = n.subs) == null ? void 0 : _a.map((s) => ({ ...s })) };
+      });
+    }
+    async apply(_changes) {
+    }
+  };
+  var host = document.getElementById("app");
+  if (host) {
+    const dir = window.__KZT_DIR__ === "horizontal" ? "horizontal" : "vertical";
+    new TreeEditor(host, new DemoProvider(DEMO_ASSIGNMENTS), dir, SEP).mount().catch((e) => {
+      console.error(e);
+      host.textContent = "\u30C7\u30E2\u306E\u521D\u671F\u5316\u306B\u5931\u6557\u3057\u307E\u3057\u305F\u3002";
+    });
+  }
+})();
+</script></body></html>

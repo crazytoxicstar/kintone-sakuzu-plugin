@@ -1,0 +1,24 @@
+<div class="kzu-config">
+  <h2 class="kzu-config-title">レコード図ツール 設定</h2>
+
+  <div id="kzu-error" class="kzu-config-error" style="display: none"></div>
+
+  <p class="kzu-config-note" style="margin-bottom: 12px">
+    1つのアプリに複数のカスタマイズビューを設定できます。ビューごとに別の図（組織図、エスカレーションフローなど）を作れます。
+    各ビューのHTMLには <code>&lt;div id="kintone-zu-root"&gt;&lt;/div&gt;</code> を1つ置いてください。
+  </p>
+
+  <div id="kzu-fields-note" class="kzu-config-note" style="margin: 4px 0 16px">フィールドを読み込み中…</div>
+
+  <div id="kzu-views"></div>
+
+  <div style="display: flex; align-items: center; gap: 12px; margin: 8px 0 20px">
+    <button id="kzu-add" class="kzu-config-btn" type="button">＋ ビューを追加</button>
+    <span id="kzu-count" class="kzu-config-note" style="margin: 0"></span>
+  </div>
+
+  <div class="kzu-config-buttons">
+    <button id="kzu-save" class="kzu-config-btn-primary" type="button">保存</button>
+    <button id="kzu-cancel" class="kzu-config-btn" type="button">キャンセル</button>
+  </div>
+</div>
