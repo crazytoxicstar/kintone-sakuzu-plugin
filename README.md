@@ -4,7 +4,7 @@ kintoneの一覧「カスタマイズビュー」上で、レコードをオブ�
 
 ## ダウンロード / インストール
 
-1. 配布用zipをダウンロード: [release/kintone-zukai-plugin.zip](release/kintone-zukai-plugin.zip)
+1. 配布用zipをダウンロード: [release/kintone-sakuzu-plugin.zip](release/kintone-sakuzu-plugin.zip)
 2. kintoneの対象アプリで「設定 → プラグイン → プラグインの追加」から、ダウンロードしたzipを追加する。
 3. プラグインを適用し、「設定」から対象ビューIDなどを入力して保存 → アプリを更新。
 
@@ -57,7 +57,7 @@ npm run dist       # build + pack
 ## ディレクトリ構成
 
 ```
-kintone-zu-plugin/
+kintone-sakuzu-plugin/
 ├── manifest は plugin/manifest.json
 ├── src/
 │   ├── shared/types.ts       図データのスキーマ（Diagram 定義）
